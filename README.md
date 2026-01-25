@@ -1,4 +1,4 @@
-# QuantumNoise : Générer du vrai hasard avec une clé USB à 30€
+# QuantumNoise : Générer du vrai hasard avec une clé USB RTL-SDR
 
 ## Introduction : Le problème du "faux" hasard
 
