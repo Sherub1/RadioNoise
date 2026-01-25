@@ -1,4 +1,4 @@
-# RadioNoise : Générer du vrai hasard avec une clé USB à 30€
+# RadioNoise : Générer du vrai hasard avec une clé RTL-SDR
 
 ## Introduction : Le problème du "faux" hasard
 
