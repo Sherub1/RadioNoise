@@ -3,8 +3,8 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <meta name="description" content="Interactive visualization of the RadioNoise TRNG architecture - From radio noise to cryptographic passwords">
-    <title>RadioNoise TRNG Architecture</title>
+    <meta name="description" content="Visualisation interactive de l'architecture TRNG RadioNoise - Du bruit radio aux mots de passe cryptographiques">
+    <title>Architecture TRNG RadioNoise</title>
     <style>
         @import url('https://fonts.googleapis.com/css2?family=Space+Mono:ital,wght@0,400;0,700;1,400&display=swap');
 
@@ -26,7 +26,7 @@
             position: relative;
         }
 
-        /* Radar grid effect */
+        /* Effet grille radar */
         body::before {
             content: '';
             position: fixed;
@@ -42,7 +42,7 @@
             z-index: 0;
         }
 
-        /* Subtle background noise */
+        /* Bruit de fond subtil */
         body::after {
             content: '';
             position: fixed;
@@ -142,7 +142,7 @@
             color: rgba(224, 224, 224, 0.6);
         }
 
-        /* Animated connections */
+        /* Connexions animées */
         .connection {
             position: absolute;
             height: 2px;
@@ -170,7 +170,7 @@
             100% { background-position: 0 -100%; }
         }
 
-        /* SVG connection lines */
+        /* Lignes de connexion SVG */
         svg.connections {
             position: absolute;
             top: 0;
@@ -202,14 +202,14 @@
             }
         }
 
-        /* Animated signal particles */
+        /* Particules de signal animées */
         .signal-particle {
             fill: #00ffc8;
             r: 3;
             filter: drop-shadow(0 0 6px #00ffc8);
         }
 
-        /* Status indicators */
+        /* Indicateurs d'état */
         .status-led {
             position: absolute;
             top: 10px;
@@ -227,7 +227,7 @@
             50% { opacity: 0.3; }
         }
 
-        /* Technical legend */
+        /* Légende technique */
         .legend {
             position: absolute;
             bottom: -60px;
@@ -238,7 +238,7 @@
             letter-spacing: 2px;
         }
 
-        /* Scanline effect */
+        /* Effet scanline */
         .scanline {
             position: fixed;
             top: 0;
@@ -256,7 +256,7 @@
             100% { transform: translateY(100vh); }
         }
 
-        /* Explanatory tooltip */
+        /* Infobulle explicative */
         .tooltip {
             position: absolute;
             background: rgba(0, 20, 20, 0.95);
@@ -275,13 +275,13 @@
             text-align: left;
         }
 
-        /* Top row tooltips appear above */
+        /* Infobulles rangée du haut : au-dessus */
         #topRow .tooltip {
             bottom: 100%;
             margin-bottom: 10px;
         }
 
-        /* Bottom row tooltips appear below */
+        /* Infobulles rangée du bas : en-dessous */
         #bottomRow .tooltip {
             top: 100%;
             margin-top: 10px;
@@ -314,7 +314,7 @@
             background: linear-gradient(90deg, transparent, #00ffc8, transparent);
         }
 
-        /* GitHub link */
+        /* Lien GitHub */
         .github-link {
             position: fixed;
             top: 20px;
@@ -331,7 +331,7 @@
             opacity: 1;
         }
 
-        /* Language switch */
+        /* Sélecteur de langue */
         .lang-switch {
             position: fixed;
             top: 20px;
@@ -352,95 +352,95 @@
 <body>
     <div class="scanline"></div>
 
-    <a href="architecture-fr.html" class="lang-switch">FR</a>
-    <a href="https://github.com/Sherub1/RadioNoise" class="github-link" target="_blank">View on GitHub</a>
+    <a href="architecture.html" class="lang-switch">EN</a>
+    <a href="https://github.com/Sherub1/RadioNoise" class="github-link" target="_blank">Voir sur GitHub</a>
 
     <div class="container">
-        <h1>RadioNoise TRNG - Processing Pipeline</h1>
+        <h1>RadioNoise TRNG - Chaîne de Traitement</h1>
 
         <svg class="connections" id="svgConnections">
-            <!-- Lines drawn by JavaScript -->
+            <!-- Lignes dessinées par JavaScript -->
         </svg>
 
         <div class="diagram">
-            <!-- Top row -->
+            <!-- Rangée du haut -->
             <div class="row" id="topRow">
-                <div class="module" data-desc="Captures ambient radio signals (FM band, weather, etc.) as entropy source">
+                <div class="module">
                     <span class="status-led"></span>
                     <span class="module-icon">📡</span>
-                    <div class="module-title">Radio Antenna</div>
-                    <div class="module-subtitle">Entropy Source</div>
-                    <div class="tooltip">Receives atmospheric noise and non-deterministic RF signals (thermal + cosmic)</div>
+                    <div class="module-title">Antenne Radio</div>
+                    <div class="module-subtitle">Source d'Entropie</div>
+                    <div class="tooltip">Réception du bruit atmosphérique et des signaux RF non-déterministes (thermique + cosmique)</div>
                 </div>
 
-                <div class="module" data-desc="RTL-SDR dongle for analog-to-digital conversion (24-1766 MHz)">
+                <div class="module">
                     <span class="status-led"></span>
                     <span class="module-icon">📻</span>
                     <div class="module-title">RTL-SDR</div>
-                    <div class="module-subtitle">Hardware ADC</div>
-                    <div class="tooltip">Analog-to-digital conversion of radio spectrum at 2.4 MS/s (8-bit I/Q samples)</div>
+                    <div class="module-subtitle">Convertisseur ADC</div>
+                    <div class="tooltip">Conversion analogique-numérique du spectre radio à 2.4 Méch/s (échantillons I/Q 8 bits)</div>
                 </div>
 
-                <div class="module" data-desc="Raw I/Q sample extraction with high entropy">
+                <div class="module">
                     <span class="status-led"></span>
                     <span class="module-icon">〰️</span>
-                    <div class="module-title">Raw Noise</div>
-                    <div class="module-subtitle">I/Q Samples</div>
-                    <div class="tooltip">Uncompressed raw data from tuner with high initial entropy (~6-7 bits/byte)</div>
+                    <div class="module-title">Bruit Brut</div>
+                    <div class="module-subtitle">Échantillons I/Q</div>
+                    <div class="tooltip">Données brutes non compressées du tuner avec haute entropie initiale (~6-7 bits/octet)</div>
                 </div>
 
-                <div class="module" data-desc="Randomness extractor correcting statistical biases">
+                <div class="module">
                     <span class="status-led"></span>
                     <span class="module-icon">⚗️</span>
                     <div class="module-title">Von Neumann</div>
-                    <div class="module-subtitle">Extractor</div>
-                    <div class="tooltip">Debiasing algorithm: 01→0, 10→1, discards 00 and 11. Output ~8 bits/byte entropy</div>
+                    <div class="module-subtitle">Extracteur</div>
+                    <div class="tooltip">Algorithme de débiaisage : 01→0, 10→1, rejette 00 et 11. Sortie ~8 bits/octet d'entropie</div>
                 </div>
 
-                <div class="module" data-desc="Statistical validation per NIST SP 800-22 standards">
+                <div class="module">
                     <span class="status-led"></span>
                     <span class="module-icon">🧪</span>
-                    <div class="module-title">NIST Tests</div>
-                    <div class="module-subtitle">SP 800-22 Suite</div>
-                    <div class="tooltip">Statistical test battery: frequency, runs, matrix rank, spectral, entropy, etc.</div>
+                    <div class="module-title">Tests NIST</div>
+                    <div class="module-subtitle">Suite SP 800-22</div>
+                    <div class="tooltip">Batterie de tests statistiques : fréquence, runs, rang matriciel, spectral, entropie, etc.</div>
                 </div>
             </div>
 
-            <!-- Bottom row (reverse flow) -->
+            <!-- Rangée du bas (flux inversé) -->
             <div class="row row-bottom" id="bottomRow">
-                <div class="module" data-desc="Certified bits after passing statistical tests">
+                <div class="module">
                     <span class="status-led"></span>
                     <span class="module-icon">🔐</span>
-                    <div class="module-title">Quality Bits</div>
-                    <div class="module-subtitle">Validated Entropy</div>
-                    <div class="tooltip">Bit stream with guaranteed minimum entropy (>0.999 bits/bit)</div>
+                    <div class="module-title">Bits Validés</div>
+                    <div class="module-subtitle">Entropie Certifiée</div>
+                    <div class="tooltip">Flux de bits avec entropie minimale garantie (>0.999 bits/bit)</div>
                 </div>
 
-                <div class="module" data-desc="Cryptographic hash function for conditioning">
+                <div class="module">
                     <span class="status-led"></span>
                     <span class="module-icon">#️⃣</span>
-                    <div class="module-title">Hash Function</div>
+                    <div class="module-title">Fonction Hash</div>
                     <div class="module-subtitle">SHA-256</div>
-                    <div class="tooltip">Cryptographic conditioning: condensed extraction of 256 bits per block</div>
+                    <div class="tooltip">Conditionnement cryptographique : extraction condensée de 256 bits par bloc</div>
                 </div>
 
-                <div class="module" data-desc="Final high-security password generator">
+                <div class="module">
                     <span class="status-led"></span>
                     <span class="module-icon">🗝️</span>
-                    <div class="module-title">Password Gen</div>
-                    <div class="module-subtitle">Final Output</div>
-                    <div class="tooltip">Mapping to alphanumeric + special charset (entropy >128 bits per password)</div>
+                    <div class="module-title">Génération MDP</div>
+                    <div class="module-subtitle">Sortie Finale</div>
+                    <div class="tooltip">Mappage vers charset alphanumérique + spéciaux (entropie >128 bits par mot de passe)</div>
                 </div>
             </div>
         </div>
 
         <div class="legend">
-            RadioNoise - True Random Number Generator via Radio Thermal Noise · <span id="timestamp"></span>
+            RadioNoise - Générateur de Nombres Aléatoires par Bruit Thermique Radio · <span id="timestamp"></span>
         </div>
     </div>
 
     <script>
-        // Draw SVG connections
+        // Dessiner les connexions SVG
         function drawConnections() {
             const svg = document.getElementById('svgConnections');
             const topRow = document.getElementById('topRow');
@@ -452,7 +452,7 @@
 
             const containerRect = document.querySelector('.container').getBoundingClientRect();
 
-            // Horizontal connections (top row)
+            // Connexions horizontales (rangée du haut)
             for (let i = 0; i < modulesTop.length - 1; i++) {
                 const start = modulesTop[i];
                 const end = modulesTop[i + 1];
@@ -470,7 +470,7 @@
                 svg.appendChild(path);
             }
 
-            // Vertical connection (NIST Tests -> Quality Bits)
+            // Connexion verticale (Tests NIST -> Bits Validés)
             const lastTop = modulesTop[modulesTop.length - 1];
             const firstBottom = modulesBottom[0];
             const lastTopRect = lastTop.getBoundingClientRect();
@@ -481,13 +481,13 @@
             const x2 = firstBottomRect.left + firstBottomRect.width / 2 - containerRect.left;
             const y2 = firstBottomRect.top - containerRect.top;
 
-            // Vertical then horizontal line
+            // Ligne verticale puis horizontale
             const pathV = document.createElementNS('http://www.w3.org/2000/svg', 'path');
             pathV.setAttribute('d', `M ${x1} ${y1} L ${x1} ${y1 + 40} L ${x2} ${y1 + 40} L ${x2} ${y2}`);
             pathV.setAttribute('class', 'signal-line active');
             svg.appendChild(pathV);
 
-            // Horizontal connections (bottom row, reversed)
+            // Connexions horizontales (rangée du bas, inversées)
             for (let i = 0; i < modulesBottom.length - 1; i++) {
                 const start = modulesBottom[i];
                 const end = modulesBottom[i + 1];
@@ -506,7 +506,7 @@
             }
         }
 
-        // Signal particle animation
+        // Animation des particules de signal
         function createParticle(path) {
             const particle = document.createElementNS('http://www.w3.org/2000/svg', 'circle');
             particle.setAttribute('class', 'signal-particle');
@@ -529,7 +529,7 @@
             animate();
         }
 
-        // Initialization
+        // Initialisation
         window.addEventListener('load', () => {
             drawConnections();
             document.querySelectorAll('.signal-line').forEach(line => {
@@ -540,7 +540,7 @@
 
         window.addEventListener('resize', drawConnections);
 
-        // Interaction: highlight flow on hover
+        // Interaction : surbrillance du flux au survol
         document.querySelectorAll('.module').forEach((module, index) => {
             module.addEventListener('mouseenter', () => {
                 const lines = document.querySelectorAll('.signal-line');
