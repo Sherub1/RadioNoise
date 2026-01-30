@@ -1,0 +1,1372 @@
+<!DOCTYPE html>
+<html lang="fr">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>RadioNoise | Entropy-Based Password Generator</title>
+    <link href="https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600;700&family=JetBrains+Mono:wght@400;500;600&display=swap" rel="stylesheet">
+    <style>
+        :root {
+            --bg-primary: #09090b;
+            --bg-secondary: #18181b;
+            --bg-tertiary: #27272a;
+            --bg-card: rgba(39, 39, 42, 0.5);
+            --border: #3f3f46;
+            --border-light: #52525b;
+            --text-primary: #fafafa;
+            --text-secondary: #a1a1aa;
+            --text-muted: #71717a;
+            --accent: #3b82f6;
+            --accent-hover: #2563eb;
+            --success: #22c55e;
+            --success-bg: rgba(34, 197, 94, 0.1);
+            --warning: #eab308;
+            --warning-bg: rgba(234, 179, 8, 0.1);
+            --error: #ef4444;
+            --error-bg: rgba(239, 68, 68, 0.1);
+        }
+
+        * {
+            margin: 0;
+            padding: 0;
+            box-sizing: border-box;
+        }
+
+        body {
+            font-family: 'Inter', -apple-system, BlinkMacSystemFont, sans-serif;
+            background: var(--bg-primary);
+            color: var(--text-primary);
+            line-height: 1.6;
+            min-height: 100vh;
+        }
+
+        .mono { font-family: 'JetBrains Mono', monospace; }
+
+        /* Header */
+        header {
+            position: fixed;
+            top: 0;
+            left: 0;
+            right: 0;
+            z-index: 100;
+            background: rgba(9, 9, 11, 0.8);
+            backdrop-filter: blur(12px);
+            border-bottom: 1px solid var(--border);
+        }
+
+        .header-content {
+            max-width: 1200px;
+            margin: 0 auto;
+            padding: 0 24px;
+            height: 64px;
+            display: flex;
+            align-items: center;
+            justify-content: space-between;
+        }
+
+        .logo {
+            display: flex;
+            align-items: center;
+            gap: 12px;
+            text-decoration: none;
+            color: var(--text-primary);
+        }
+
+        .logo-icon {
+            width: 32px;
+            height: 32px;
+            background: linear-gradient(135deg, var(--accent), #8b5cf6);
+            border-radius: 8px;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+        }
+
+        .logo-text {
+            font-weight: 600;
+            font-size: 18px;
+            letter-spacing: -0.02em;
+        }
+
+        .logo-text span { color: var(--accent); }
+
+        nav {
+            display: flex;
+            gap: 32px;
+        }
+
+        nav a {
+            color: var(--text-secondary);
+            text-decoration: none;
+            font-size: 14px;
+            font-weight: 500;
+            transition: color 0.2s;
+        }
+
+        nav a:hover { color: var(--text-primary); }
+
+        .status-badge {
+            display: flex;
+            align-items: center;
+            gap: 8px;
+            padding: 6px 12px;
+            border-radius: 20px;
+            font-size: 12px;
+            font-weight: 500;
+        }
+
+        .status-badge.online {
+            background: var(--success-bg);
+            color: var(--success);
+        }
+
+        .status-badge.offline {
+            background: var(--error-bg);
+            color: var(--error);
+        }
+
+        .status-badge.checking {
+            background: var(--warning-bg);
+            color: var(--warning);
+        }
+
+        .status-dot {
+            width: 6px;
+            height: 6px;
+            border-radius: 50%;
+            background: currentColor;
+        }
+
+        .status-badge.online .status-dot {
+            animation: pulse 2s infinite;
+        }
+
+        @keyframes pulse {
+            0%, 100% { opacity: 1; }
+            50% { opacity: 0.5; }
+        }
+
+        /* Main Content */
+        main {
+            padding-top: 64px;
+        }
+
+        .container {
+            max-width: 1200px;
+            margin: 0 auto;
+            padding: 0 24px;
+        }
+
+        /* Hero Section */
+        .hero {
+            padding: 80px 0 60px;
+            text-align: center;
+        }
+
+        .hero-badge {
+            display: inline-flex;
+            align-items: center;
+            gap: 8px;
+            padding: 8px 16px;
+            background: var(--bg-tertiary);
+            border: 1px solid var(--border);
+            border-radius: 20px;
+            font-size: 13px;
+            color: var(--text-secondary);
+            margin-bottom: 24px;
+        }
+
+        .hero-badge svg {
+            width: 16px;
+            height: 16px;
+            color: var(--accent);
+        }
+
+        h1 {
+            font-size: clamp(32px, 5vw, 48px);
+            font-weight: 700;
+            letter-spacing: -0.03em;
+            margin-bottom: 16px;
+            line-height: 1.1;
+        }
+
+        h1 span {
+            background: linear-gradient(135deg, var(--accent) 0%, #8b5cf6 100%);
+            -webkit-background-clip: text;
+            -webkit-text-fill-color: transparent;
+            background-clip: text;
+        }
+
+        .hero p {
+            font-size: 18px;
+            color: var(--text-secondary);
+            max-width: 600px;
+            margin: 0 auto 40px;
+        }
+
+        /* Generator Card */
+        .generator-section {
+            padding: 40px 0 80px;
+        }
+
+        .generator-card {
+            background: var(--bg-secondary);
+            border: 1px solid var(--border);
+            border-radius: 16px;
+            overflow: hidden;
+        }
+
+        .card-header {
+            padding: 24px;
+            border-bottom: 1px solid var(--border);
+            display: flex;
+            align-items: center;
+            justify-content: space-between;
+        }
+
+        .card-title {
+            font-size: 18px;
+            font-weight: 600;
+        }
+
+        .source-indicator {
+            display: flex;
+            align-items: center;
+            gap: 8px;
+            font-size: 13px;
+            color: var(--text-muted);
+        }
+
+        .source-indicator svg {
+            width: 16px;
+            height: 16px;
+        }
+
+        .card-body {
+            padding: 24px;
+        }
+
+        /* Controls */
+        .controls-grid {
+            display: grid;
+            grid-template-columns: repeat(auto-fit, minmax(200px, 1fr));
+            gap: 16px;
+            margin-bottom: 24px;
+        }
+
+        .control-group {
+            display: flex;
+            flex-direction: column;
+            gap: 8px;
+        }
+
+        .control-label {
+            font-size: 13px;
+            font-weight: 500;
+            color: var(--text-secondary);
+        }
+
+        .control-input,
+        .control-select {
+            background: var(--bg-primary);
+            border: 1px solid var(--border);
+            border-radius: 8px;
+            padding: 12px 16px;
+            font-size: 14px;
+            color: var(--text-primary);
+            outline: none;
+            transition: border-color 0.2s;
+        }
+
+        .control-input:focus,
+        .control-select:focus {
+            border-color: var(--accent);
+        }
+
+        .control-select {
+            cursor: pointer;
+        }
+
+        /* Charset Buttons */
+        .charset-grid {
+            display: flex;
+            flex-wrap: wrap;
+            gap: 8px;
+            margin-bottom: 24px;
+        }
+
+        .charset-btn {
+            padding: 10px 16px;
+            background: var(--bg-primary);
+            border: 1px solid var(--border);
+            border-radius: 8px;
+            color: var(--text-secondary);
+            font-size: 13px;
+            font-weight: 500;
+            cursor: pointer;
+            transition: all 0.2s;
+        }
+
+        .charset-btn:hover {
+            border-color: var(--border-light);
+            color: var(--text-primary);
+        }
+
+        .charset-btn.active {
+            background: var(--accent);
+            border-color: var(--accent);
+            color: white;
+        }
+
+        /* Generate Button */
+        .generate-btn {
+            width: 100%;
+            padding: 16px 24px;
+            background: var(--accent);
+            border: none;
+            border-radius: 10px;
+            color: white;
+            font-size: 15px;
+            font-weight: 600;
+            cursor: pointer;
+            transition: all 0.2s;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            gap: 10px;
+        }
+
+        .generate-btn:hover:not(:disabled) {
+            background: var(--accent-hover);
+            transform: translateY(-1px);
+        }
+
+        .generate-btn:disabled {
+            opacity: 0.6;
+            cursor: not-allowed;
+        }
+
+        .generate-btn svg {
+            width: 18px;
+            height: 18px;
+        }
+
+        .generate-btn.loading svg {
+            animation: spin 1s linear infinite;
+        }
+
+        @keyframes spin {
+            from { transform: rotate(0deg); }
+            to { transform: rotate(360deg); }
+        }
+
+        /* Results */
+        .results-section {
+            margin-top: 32px;
+            display: none;
+        }
+
+        .results-section.visible {
+            display: block;
+        }
+
+        .results-header {
+            display: flex;
+            align-items: center;
+            justify-content: space-between;
+            margin-bottom: 16px;
+        }
+
+        .results-title {
+            font-size: 14px;
+            font-weight: 600;
+            color: var(--text-secondary);
+            text-transform: uppercase;
+            letter-spacing: 0.05em;
+        }
+
+        .nist-badge {
+            display: flex;
+            align-items: center;
+            gap: 6px;
+            padding: 6px 12px;
+            border-radius: 6px;
+            font-size: 12px;
+            font-weight: 600;
+        }
+
+        .nist-badge.pass {
+            background: var(--success-bg);
+            color: var(--success);
+        }
+
+        .nist-badge.warn {
+            background: var(--warning-bg);
+            color: var(--warning);
+        }
+
+        .nist-badge.fail {
+            background: var(--error-bg);
+            color: var(--error);
+        }
+
+        .password-list {
+            display: flex;
+            flex-direction: column;
+            gap: 12px;
+        }
+
+        .password-item {
+            background: var(--bg-primary);
+            border: 1px solid var(--border);
+            border-radius: 10px;
+            padding: 16px;
+            display: flex;
+            align-items: center;
+            justify-content: space-between;
+            gap: 16px;
+            transition: border-color 0.2s;
+        }
+
+        .password-item:hover {
+            border-color: var(--border-light);
+        }
+
+        .password-content {
+            flex: 1;
+            min-width: 0;
+        }
+
+        .password-value {
+            font-family: 'JetBrains Mono', monospace;
+            font-size: 16px;
+            font-weight: 500;
+            word-break: break-all;
+            margin-bottom: 4px;
+        }
+
+        .password-meta {
+            font-size: 12px;
+            color: var(--text-muted);
+        }
+
+        .password-meta span {
+            color: var(--accent);
+            font-weight: 500;
+        }
+
+        .copy-btn {
+            padding: 10px 16px;
+            background: var(--bg-tertiary);
+            border: 1px solid var(--border);
+            border-radius: 6px;
+            color: var(--text-secondary);
+            font-size: 13px;
+            font-weight: 500;
+            cursor: pointer;
+            transition: all 0.2s;
+            white-space: nowrap;
+        }
+
+        .copy-btn:hover {
+            background: var(--bg-secondary);
+            color: var(--text-primary);
+        }
+
+        .copy-btn.copied {
+            background: var(--success-bg);
+            border-color: var(--success);
+            color: var(--success);
+        }
+
+        /* Pipeline Section */
+        .pipeline-section {
+            padding: 80px 0;
+            border-top: 1px solid var(--border);
+        }
+
+        .section-header {
+            text-align: center;
+            margin-bottom: 48px;
+        }
+
+        .section-header h2 {
+            font-size: 28px;
+            font-weight: 700;
+            margin-bottom: 12px;
+        }
+
+        .section-header p {
+            color: var(--text-secondary);
+            max-width: 600px;
+            margin: 0 auto;
+        }
+
+        .pipeline-grid {
+            display: grid;
+            grid-template-columns: repeat(5, 1fr);
+            gap: 16px;
+            position: relative;
+        }
+
+        @media (max-width: 900px) {
+            .pipeline-grid {
+                grid-template-columns: 1fr;
+            }
+        }
+
+        .pipeline-connector {
+            display: none;
+        }
+
+        @media (min-width: 901px) {
+            .pipeline-connector {
+                display: block;
+                position: absolute;
+                top: 48px;
+                left: 10%;
+                right: 10%;
+                height: 2px;
+                background: linear-gradient(90deg, var(--accent), #8b5cf6, var(--success));
+                opacity: 0.3;
+            }
+        }
+
+        .pipeline-step {
+            background: var(--bg-secondary);
+            border: 1px solid var(--border);
+            border-radius: 12px;
+            padding: 24px 16px;
+            text-align: center;
+            position: relative;
+            transition: all 0.3s;
+        }
+
+        .pipeline-step:hover {
+            border-color: var(--accent);
+            transform: translateY(-4px);
+        }
+
+        .step-number {
+            width: 32px;
+            height: 32px;
+            background: var(--accent);
+            border-radius: 50%;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            font-size: 14px;
+            font-weight: 600;
+            margin: 0 auto 16px;
+        }
+
+        .step-icon {
+            width: 48px;
+            height: 48px;
+            background: var(--bg-tertiary);
+            border-radius: 12px;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            margin: 0 auto 16px;
+        }
+
+        .step-icon svg {
+            width: 24px;
+            height: 24px;
+            color: var(--accent);
+        }
+
+        .step-title {
+            font-size: 14px;
+            font-weight: 600;
+            margin-bottom: 8px;
+        }
+
+        .step-desc {
+            font-size: 12px;
+            color: var(--text-muted);
+            line-height: 1.5;
+        }
+
+        /* NIST Section */
+        .nist-section {
+            padding: 80px 0;
+            background: var(--bg-secondary);
+            border-top: 1px solid var(--border);
+            border-bottom: 1px solid var(--border);
+        }
+
+        .nist-grid {
+            display: grid;
+            grid-template-columns: repeat(auto-fit, minmax(280px, 1fr));
+            gap: 16px;
+        }
+
+        .nist-card {
+            background: var(--bg-primary);
+            border: 1px solid var(--border);
+            border-radius: 12px;
+            padding: 20px;
+            transition: border-color 0.2s;
+        }
+
+        .nist-card:hover {
+            border-color: var(--border-light);
+        }
+
+        .nist-card-header {
+            display: flex;
+            align-items: center;
+            justify-content: space-between;
+            margin-bottom: 12px;
+        }
+
+        .nist-card-title {
+            font-size: 14px;
+            font-weight: 600;
+            color: var(--accent);
+        }
+
+        .nist-card-number {
+            font-size: 11px;
+            color: var(--text-muted);
+            background: var(--bg-tertiary);
+            padding: 4px 8px;
+            border-radius: 4px;
+        }
+
+        .nist-card-desc {
+            font-size: 13px;
+            color: var(--text-secondary);
+            margin-bottom: 12px;
+            line-height: 1.5;
+        }
+
+        .nist-card-formula {
+            background: var(--bg-secondary);
+            border-radius: 6px;
+            padding: 10px 12px;
+            font-family: 'JetBrains Mono', monospace;
+            font-size: 11px;
+            color: var(--success);
+        }
+
+        /* CLI Section */
+        .cli-section {
+            padding: 80px 0;
+        }
+
+        .cli-card {
+            background: var(--bg-secondary);
+            border: 1px solid var(--border);
+            border-radius: 16px;
+            overflow: hidden;
+        }
+
+        .cli-header {
+            padding: 12px 16px;
+            background: var(--bg-tertiary);
+            border-bottom: 1px solid var(--border);
+            display: flex;
+            align-items: center;
+            gap: 8px;
+        }
+
+        .cli-dot {
+            width: 12px;
+            height: 12px;
+            border-radius: 50%;
+        }
+
+        .cli-dot.red { background: #ef4444; }
+        .cli-dot.yellow { background: #eab308; }
+        .cli-dot.green { background: #22c55e; }
+
+        .cli-body {
+            padding: 24px;
+            font-family: 'JetBrains Mono', monospace;
+            font-size: 13px;
+            line-height: 1.8;
+            overflow-x: auto;
+        }
+
+        .cli-comment {
+            color: var(--text-muted);
+        }
+
+        .cli-command {
+            color: var(--success);
+        }
+
+        .cli-command::before {
+            content: '$ ';
+            color: var(--text-muted);
+        }
+
+        /* Error Message */
+        .error-message {
+            background: var(--error-bg);
+            border: 1px solid var(--error);
+            border-radius: 10px;
+            padding: 16px;
+            margin-top: 24px;
+            display: none;
+        }
+
+        .error-message.visible {
+            display: flex;
+            align-items: flex-start;
+            gap: 12px;
+        }
+
+        .error-message svg {
+            width: 20px;
+            height: 20px;
+            color: var(--error);
+            flex-shrink: 0;
+        }
+
+        .error-content h4 {
+            font-size: 14px;
+            font-weight: 600;
+            color: var(--error);
+            margin-bottom: 4px;
+        }
+
+        .error-content p {
+            font-size: 13px;
+            color: var(--text-secondary);
+        }
+
+        /* Footer */
+        footer {
+            padding: 40px 0;
+            border-top: 1px solid var(--border);
+            text-align: center;
+        }
+
+        footer p {
+            font-size: 13px;
+            color: var(--text-muted);
+            margin-bottom: 8px;
+        }
+
+        footer a {
+            color: var(--accent);
+            text-decoration: none;
+        }
+
+        footer a:hover {
+            text-decoration: underline;
+        }
+
+        /* NIST Toggle */
+        .nist-toggle {
+            margin-bottom: 24px;
+            padding: 16px;
+            background: var(--bg-primary);
+            border: 1px solid var(--border);
+            border-radius: 10px;
+        }
+
+        .toggle-label {
+            display: flex;
+            align-items: center;
+            gap: 12px;
+            cursor: pointer;
+            user-select: none;
+        }
+
+        .toggle-label input {
+            display: none;
+        }
+
+        .toggle-switch {
+            width: 44px;
+            height: 24px;
+            background: var(--bg-tertiary);
+            border-radius: 12px;
+            position: relative;
+            transition: background 0.2s;
+            flex-shrink: 0;
+        }
+
+        .toggle-switch::after {
+            content: '';
+            position: absolute;
+            width: 18px;
+            height: 18px;
+            background: var(--text-secondary);
+            border-radius: 50%;
+            top: 3px;
+            left: 3px;
+            transition: all 0.2s;
+        }
+
+        .toggle-label input:checked + .toggle-switch {
+            background: var(--accent);
+        }
+
+        .toggle-label input:checked + .toggle-switch::after {
+            left: 23px;
+            background: white;
+        }
+
+        .toggle-text {
+            font-size: 14px;
+            font-weight: 500;
+            color: var(--text-primary);
+        }
+
+        .toggle-hint {
+            font-size: 12px;
+            color: var(--text-muted);
+            margin-left: auto;
+        }
+
+        /* Responsive */
+        @media (max-width: 768px) {
+            nav { display: none; }
+            .hero { padding: 60px 0 40px; }
+            .controls-grid { grid-template-columns: 1fr; }
+            .toggle-hint { display: none; }
+        }
+    </style>
+</head>
+<body>
+    <header>
+        <div class="header-content">
+            <a href="#" class="logo">
+                <div class="logo-icon">
+                    <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="white" stroke-width="2.5">
+                        <path d="M12 2L12 6M12 18L12 22M4.93 4.93L7.76 7.76M16.24 16.24L19.07 19.07M2 12L6 12M18 12L22 12M4.93 19.07L7.76 16.24M16.24 7.76L19.07 4.93"/>
+                    </svg>
+                </div>
+                <span class="logo-text">Radio<span>Noise</span></span>
+            </a>
+            <nav>
+                <a href="#generator">Generator</a>
+                <a href="#pipeline">Pipeline</a>
+                <a href="#nist">NIST Tests</a>
+                <a href="#cli">CLI</a>
+            </nav>
+            <div id="serverStatus" class="status-badge checking">
+                <span class="status-dot"></span>
+                <span class="status-text">Checking...</span>
+            </div>
+        </div>
+    </header>
+
+    <main>
+        <section class="hero container">
+            <div class="hero-badge">
+                <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+                    <path d="M12 22s8-4 8-10V5l-8-3-8 3v7c0 6 8 10 8 10z"/>
+                </svg>
+                Hardware-Based Entropy Source
+            </div>
+            <h1>Cryptographic Passwords from <span>Hardware Entropy</span></h1>
+            <p>Generate truly random passwords using multiple entropy sources: RTL-SDR radio noise, Intel/AMD RDRAND, or system CSPRNG. All processed through Von Neumann extraction and validated by NIST SP 800-22 tests.</p>
+        </section>
+
+        <section id="generator" class="generator-section container">
+            <div class="generator-card">
+                <div class="card-header">
+                    <span class="card-title">Password Generator</span>
+                    <div class="source-indicator" id="sourceIndicator">
+                        <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+                            <circle cx="12" cy="12" r="10"/>
+                            <path d="M12 6v6l4 2"/>
+                        </svg>
+                        <span>Waiting for server...</span>
+                    </div>
+                </div>
+                <div class="card-body">
+                    <div class="controls-grid">
+                        <div class="control-group">
+                            <label class="control-label">Type</label>
+                            <select id="genType" class="control-select">
+                                <option value="password">Password</option>
+                                <option value="passphrase">Passphrase (Words)</option>
+                            </select>
+                        </div>
+                        <div class="control-group">
+                            <label class="control-label" id="lengthLabel">Length (characters)</label>
+                            <input type="number" id="genLength" class="control-input mono" value="20" min="8" max="128">
+                        </div>
+                        <div class="control-group">
+                            <label class="control-label">Count</label>
+                            <input type="number" id="genCount" class="control-input mono" value="3" min="1" max="10">
+                        </div>
+                    </div>
+
+                    <div id="charsetSelector" class="charset-grid">
+                        <button class="charset-btn active" data-charset="safe">Safe (Recommended)</button>
+                        <button class="charset-btn" data-charset="full">Full Special</button>
+                        <button class="charset-btn" data-charset="alnum">Alphanumeric</button>
+                        <button class="charset-btn" data-charset="hex">Hexadecimal</button>
+                    </div>
+
+                    <div class="nist-toggle">
+                        <label class="toggle-label">
+                            <input type="checkbox" id="fullNistTest">
+                            <span class="toggle-switch"></span>
+                            <span class="toggle-text">Full NIST SP 800-22 (15 tests)</span>
+                            <span class="toggle-hint">Default: 9 fast tests</span>
+                        </label>
+                    </div>
+
+                    <button id="generateBtn" class="generate-btn" onclick="generatePasswords()">
+                        <svg id="btnIcon" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+                            <path d="M21 2l-2 2m-7.61 7.61a5.5 5.5 0 1 1-7.778 7.778 5.5 5.5 0 0 1 7.777-7.777zm0 0L15.5 7.5m0 0l3 3L22 7l-3-3m-3.5 3.5L19 4"/>
+                        </svg>
+                        <span id="btnText">Generate with RTL-SDR</span>
+                    </button>
+
+                    <div id="errorMessage" class="error-message">
+                        <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+                            <circle cx="12" cy="12" r="10"/>
+                            <line x1="12" y1="8" x2="12" y2="12"/>
+                            <line x1="12" y1="16" x2="12.01" y2="16"/>
+                        </svg>
+                        <div class="error-content">
+                            <h4 id="errorTitle">Connection Error</h4>
+                            <p id="errorDesc">Unable to connect to the entropy server.</p>
+                        </div>
+                    </div>
+
+                    <div id="results" class="results-section">
+                        <div class="results-header">
+                            <span class="results-title">Generated Passwords</span>
+                            <div id="nistBadge" class="nist-badge pass">
+                                <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5">
+                                    <polyline points="20 6 9 17 4 12"/>
+                                </svg>
+                                <span id="nistScore">7/7 NIST</span>
+                            </div>
+                        </div>
+                        <div id="passwordList" class="password-list"></div>
+                    </div>
+                </div>
+            </div>
+        </section>
+
+        <section id="pipeline" class="pipeline-section container">
+            <div class="section-header">
+                <h2>Entropy Pipeline</h2>
+                <p>From radio waves to cryptographic-quality randomness</p>
+            </div>
+
+            <div class="pipeline-grid">
+                <div class="pipeline-connector"></div>
+
+                <div class="pipeline-step">
+                    <div class="step-number">1</div>
+                    <div class="step-icon">
+                        <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+                            <path d="M8.111 16.404a5.5 5.5 0 017.778 0M12 20h.01m-7.08-7.071c3.904-3.905 10.236-3.905 14.141 0M1.394 9.393c5.857-5.857 15.355-5.857 21.213 0"/>
+                        </svg>
+                    </div>
+                    <h3 class="step-title">Entropy Source</h3>
+                    <p class="step-desc">RTL-SDR radio noise, CPU RDRAND/RDSEED, or system CSPRNG (auto-fallback)</p>
+                </div>
+
+                <div class="pipeline-step">
+                    <div class="step-number">2</div>
+                    <div class="step-icon">
+                        <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+                            <path d="M22 12h-4l-3 9L9 3l-3 9H2"/>
+                        </svg>
+                    </div>
+                    <h3 class="step-title">Von Neumann</h3>
+                    <p class="step-desc">Debiasing extraction: 01 to 0, 10 to 1, others discarded</p>
+                </div>
+
+                <div class="pipeline-step">
+                    <div class="step-number">3</div>
+                    <div class="step-icon">
+                        <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+                            <rect x="3" y="11" width="18" height="11" rx="2" ry="2"/>
+                            <path d="M7 11V7a5 5 0 0110 0v4"/>
+                        </svg>
+                    </div>
+                    <h3 class="step-title">SHA-512 Whitening</h3>
+                    <p class="step-desc">Cryptographic hash per chunk with unique salt index</p>
+                </div>
+
+                <div class="pipeline-step">
+                    <div class="step-number">4</div>
+                    <div class="step-icon">
+                        <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+                            <path d="M9 12l2 2 4-4m6 2a9 9 0 11-18 0 9 9 0 0118 0z"/>
+                        </svg>
+                    </div>
+                    <h3 class="step-title">NIST Validation</h3>
+                    <p class="step-desc">SP 800-22 statistical tests verify randomness quality</p>
+                </div>
+
+                <div class="pipeline-step">
+                    <div class="step-number">5</div>
+                    <div class="step-icon">
+                        <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+                            <path d="M15 7a2 2 0 012 2m4 0a6 6 0 01-7.743 5.743L11 17H9v2H7v2H4a1 1 0 01-1-1v-2.586a1 1 0 01.293-.707l5.964-5.964A6 6 0 1121 9z"/>
+                        </svg>
+                    </div>
+                    <h3 class="step-title">Generation</h3>
+                    <p class="step-desc">Rejection sampling for uniform distribution</p>
+                </div>
+            </div>
+        </section>
+
+        <section id="nist" class="nist-section">
+            <div class="container">
+                <div class="section-header">
+                    <h2>NIST SP 800-22 Tests</h2>
+                    <p>Statistical validation with 99% confidence threshold (p-value 0.01)</p>
+                </div>
+
+                <div class="nist-grid" id="nistGrid"></div>
+            </div>
+        </section>
+
+        <section id="cli" class="cli-section container">
+            <div class="section-header">
+                <h2>Command Line Interface</h2>
+                <p>Direct access to the entropy generation pipeline</p>
+            </div>
+
+            <div class="cli-card">
+                <div class="cli-header">
+                    <span class="cli-dot red"></span>
+                    <span class="cli-dot yellow"></span>
+                    <span class="cli-dot green"></span>
+                </div>
+                <div class="cli-body">
+                    <div class="cli-comment"># Generate passwords with NIST validation (fast mode)</div>
+                    <div class="cli-command">python3 tests/scripts/RadioNoise.py -l 20 -n 5</div>
+                    <br>
+                    <div class="cli-comment"># Generate passphrases (6 words)</div>
+                    <div class="cli-command">python3 tests/scripts/RadioNoise.py -p -l 6 -n 3</div>
+                    <br>
+                    <div class="cli-comment"># Full NIST test suite (15 tests, slower)</div>
+                    <div class="cli-command">python3 tests/scripts/RadioNoise.py --full-test -n 5</div>
+                    <br>
+                    <div class="cli-comment"># Test entropy quality only</div>
+                    <div class="cli-command">python3 tests/scripts/RadioNoise.py -f entropy.bin --test-only</div>
+                    <br>
+                    <div class="cli-comment"># Use RDSEED (direct CPU entropy) instead of RDRAND</div>
+                    <div class="cli-command">python3 tests/scripts/RadioNoise.py --use-rdseed -n 5</div>
+                </div>
+            </div>
+        </section>
+    </main>
+
+    <footer>
+        <div class="container">
+            <p>Based on NIST SP 800-22 standards for random number generators</p>
+            <p>Requires RTL-SDR USB dongle and <a href="https://github.com/osmocom/rtl-sdr" target="_blank">rtl-sdr drivers</a></p>
+        </div>
+    </footer>
+
+    <script>
+        const API_BASE = 'http://127.0.0.1:8742';
+
+        const NIST_TESTS = [
+            { name: "Frequency (Monobit)", desc: "Balance between 0s and 1s", formula: "S = |2×ones - n| / √n" },
+            { name: "Block Frequency", desc: "Proportion of 1s in 128-bit blocks", formula: "χ² = 4M × Σ(πᵢ - 0.5)²" },
+            { name: "Runs Test", desc: "Consecutive identical bit transitions", formula: "V = (runs - μ) / σ" },
+            { name: "Longest Run", desc: "Longest sequence of 1s per block", formula: "χ² distribution" },
+            { name: "Binary Matrix Rank", desc: "Linear dependencies in substrings", formula: "Rank of 32×32 matrices" },
+            { name: "Spectral (DFT)", desc: "Periodic patterns via Fourier", formula: "Threshold = √(ln(1/0.05)×n)" },
+            { name: "Non-overlapping Template", desc: "Non-overlapping pattern occurrences", formula: "χ² = Σ(count - μ)²/σ²" },
+            { name: "Overlapping Template", desc: "Overlapping pattern occurrences", formula: "χ² on frequency classes" },
+            { name: "Maurer's Universal", desc: "Sequence compressibility", formula: "fn = Σlog₂(distance) / K" },
+            { name: "Linear Complexity", desc: "LFSR complexity (Berlekamp-Massey)", formula: "T = (-1)^M × (L - μ)" },
+            { name: "Serial Test", desc: "Bit independence via patterns", formula: "Δ = ψ²(m) - ψ²(m-1)" },
+            { name: "Approximate Entropy", desc: "Regularity and predictability", formula: "ApEn = φ(m) - φ(m+1)" },
+            { name: "Cumulative Sums", desc: "Cumulative sum deviation", formula: "z = max|S_k|" },
+            { name: "Random Excursions", desc: "Cycles in random walk", formula: "χ² on state visits" },
+            { name: "Random Excursions Variant", desc: "Total visits per state", formula: "erfc(|ξ - J| / √(2J×σ²))" }
+        ];
+
+        const CHARSETS = {
+            safe: 'ABCDEFGHIJKLMNOPQRSTUVWXYZabcdefghijklmnopqrstuvwxyz0123456789-_!@#$%',
+            full: 'ABCDEFGHIJKLMNOPQRSTUVWXYZabcdefghijklmnopqrstuvwxyz0123456789!@#$%^&*()-_=+[]{}|;:,.<>?',
+            alnum: 'ABCDEFGHIJKLMNOPQRSTUVWXYZabcdefghijklmnopqrstuvwxyz0123456789',
+            hex: '0123456789abcdef'
+        };
+
+        let selectedCharset = 'safe';
+        let serverAvailable = false;
+        let rtlAvailable = false;
+        let rdrandAvailable = false;
+        let entropySource = 'none';
+
+        // Initialize
+        document.addEventListener('DOMContentLoaded', () => {
+            renderNISTCards();
+            setupCharsetButtons();
+            setupTypeSelector();
+            checkServerStatus();
+        });
+
+        function renderNISTCards() {
+            const grid = document.getElementById('nistGrid');
+            NIST_TESTS.forEach((test, idx) => {
+                const card = document.createElement('div');
+                card.className = 'nist-card';
+                card.innerHTML = `
+                    <div class="nist-card-header">
+                        <span class="nist-card-title">${test.name}</span>
+                        <span class="nist-card-number">Test ${idx + 1}</span>
+                    </div>
+                    <p class="nist-card-desc">${test.desc}</p>
+                    <div class="nist-card-formula">${test.formula}</div>
+                `;
+                grid.appendChild(card);
+            });
+        }
+
+        function setupCharsetButtons() {
+            const buttons = document.querySelectorAll('.charset-btn');
+            buttons.forEach(btn => {
+                btn.addEventListener('click', () => {
+                    buttons.forEach(b => b.classList.remove('active'));
+                    btn.classList.add('active');
+                    selectedCharset = btn.dataset.charset;
+                });
+            });
+        }
+
+        function setupTypeSelector() {
+            const typeSelect = document.getElementById('genType');
+            const lengthLabel = document.getElementById('lengthLabel');
+            const lengthInput = document.getElementById('genLength');
+            const charsetSelector = document.getElementById('charsetSelector');
+
+            typeSelect.addEventListener('change', () => {
+                if (typeSelect.value === 'passphrase') {
+                    lengthLabel.textContent = 'Length (words)';
+                    lengthInput.value = 6;
+                    lengthInput.min = 4;
+                    lengthInput.max = 12;
+                    charsetSelector.style.display = 'none';
+                } else {
+                    lengthLabel.textContent = 'Length (characters)';
+                    lengthInput.value = 20;
+                    lengthInput.min = 8;
+                    lengthInput.max = 128;
+                    charsetSelector.style.display = 'flex';
+                }
+            });
+        }
+
+        async function checkServerStatus() {
+            const badge = document.getElementById('serverStatus');
+            const indicator = document.getElementById('sourceIndicator');
+            const btn = document.getElementById('generateBtn');
+            const btnText = document.getElementById('btnText');
+
+            try {
+                const response = await fetch(`${API_BASE}/api/status`, { timeout: 3000 });
+                const data = await response.json();
+
+                serverAvailable = true;
+                rtlAvailable = data.rtl_available;
+                rdrandAvailable = data.rdrand_available || false;
+                entropySource = data.entropy_source || (rtlAvailable ? 'RTL-SDR' : (rdrandAvailable ? 'RDRAND' : 'CSPRNG'));
+
+                if (rtlAvailable) {
+                    badge.className = 'status-badge online';
+                    badge.querySelector('.status-text').textContent = 'RTL-SDR Connected';
+                    indicator.innerHTML = `
+                        <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+                            <path d="M8.111 16.404a5.5 5.5 0 017.778 0M12 20h.01"/>
+                        </svg>
+                        <span>Source: RTL-SDR (radio noise)</span>
+                    `;
+                    indicator.style.color = 'var(--success)';
+                    btnText.textContent = 'Generate with RTL-SDR';
+                } else if (rdrandAvailable) {
+                    badge.className = 'status-badge online';
+                    badge.querySelector('.status-text').textContent = 'RDRAND Available';
+                    indicator.innerHTML = `
+                        <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+                            <rect x="4" y="4" width="16" height="16" rx="2"/>
+                            <path d="M9 9h6v6H9z"/>
+                        </svg>
+                        <span>Source: CPU Hardware RNG (RDRAND)</span>
+                    `;
+                    indicator.style.color = 'var(--accent)';
+                    btnText.textContent = 'Generate with RDRAND';
+                } else {
+                    badge.className = 'status-badge checking';
+                    badge.querySelector('.status-text').textContent = 'CSPRNG Fallback';
+                    indicator.innerHTML = `
+                        <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+                            <path d="M12 22s8-4 8-10V5l-8-3-8 3v7c0 6 8 10 8 10z"/>
+                        </svg>
+                        <span>Source: System CSPRNG (secrets)</span>
+                    `;
+                    indicator.style.color = 'var(--warning)';
+                    btnText.textContent = 'Generate with CSPRNG';
+                }
+            } catch (e) {
+                serverAvailable = false;
+                badge.className = 'status-badge offline';
+                badge.querySelector('.status-text').textContent = 'Server Offline';
+                indicator.innerHTML = `
+                    <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+                        <circle cx="12" cy="12" r="10"/>
+                        <line x1="12" y1="8" x2="12" y2="12"/>
+                        <line x1="12" y1="16" x2="12.01" y2="16"/>
+                    </svg>
+                    <span>Use CLI: python3 RadioNoise.py</span>
+                `;
+                indicator.style.color = 'var(--text-muted)';
+                btnText.textContent = 'Server Required';
+            }
+        }
+
+        async function generatePasswords() {
+            const btn = document.getElementById('generateBtn');
+            const btnIcon = document.getElementById('btnIcon');
+            const btnText = document.getElementById('btnText');
+            const errorDiv = document.getElementById('errorMessage');
+            const resultsDiv = document.getElementById('results');
+
+            // Reset UI
+            errorDiv.classList.remove('visible');
+            resultsDiv.classList.remove('visible');
+
+            // Check server
+            if (!serverAvailable) {
+                showError('Server Not Running', 'Start the entropy server or use CLI: python3 tests/scripts/RadioNoise.py');
+                return;
+            }
+
+            // Loading state
+            btn.disabled = true;
+            btn.classList.add('loading');
+            btnIcon.innerHTML = '<circle cx="12" cy="12" r="10" stroke="currentColor" stroke-width="2" fill="none" stroke-dasharray="60" stroke-dashoffset="0"/>';
+            const sourceText = rtlAvailable ? 'RTL-SDR' : (rdrandAvailable ? 'RDRAND' : 'CSPRNG');
+            const fullTest = document.getElementById('fullNistTest').checked;
+            const testMode = fullTest ? ' (15 tests)' : '';
+            btnText.textContent = `Generating via ${sourceText}${testMode}...`;
+
+            try {
+                const genType = document.getElementById('genType').value;
+                const length = document.getElementById('genLength').value;
+                const count = document.getElementById('genCount').value;
+
+                const params = new URLSearchParams({
+                    type: genType,
+                    length: length,
+                    count: count,
+                    charset: selectedCharset,
+                    full_test: fullTest
+                });
+
+                const response = await fetch(`${API_BASE}/api/generate?${params}`);
+                const data = await response.json();
+
+                if (!data.success) {
+                    throw new Error(data.error || 'Generation failed');
+                }
+
+                displayResults(data);
+
+            } catch (e) {
+                showError('Generation Failed', e.message);
+            } finally {
+                btn.disabled = false;
+                btn.classList.remove('loading');
+                btnIcon.innerHTML = '<path d="M21 2l-2 2m-7.61 7.61a5.5 5.5 0 1 1-7.778 7.778 5.5 5.5 0 0 1 7.777-7.777zm0 0L15.5 7.5m0 0l3 3L22 7l-3-3m-3.5 3.5L19 4"/>';
+                const btnSource = rtlAvailable ? 'RTL-SDR' : (rdrandAvailable ? 'RDRAND' : 'CSPRNG');
+                btnText.textContent = `Generate with ${btnSource}`;
+            }
+        }
+
+        function displayResults(data) {
+            const resultsDiv = document.getElementById('results');
+            const passwordList = document.getElementById('passwordList');
+            const nistBadge = document.getElementById('nistBadge');
+            const nistScore = document.getElementById('nistScore');
+
+            // NIST badge
+            const passed = data.nist.passed;
+            const total = data.nist.total;
+            nistScore.textContent = `${passed}/${total} NIST`;
+
+            if (passed === total) {
+                nistBadge.className = 'nist-badge pass';
+            } else if (passed >= total * 0.8) {
+                nistBadge.className = 'nist-badge warn';
+            } else {
+                nistBadge.className = 'nist-badge fail';
+            }
+
+            // Get entropy source from response or use detected source
+            const source = data.entropy_source || entropySource;
+
+            // Password list
+            passwordList.innerHTML = '';
+            data.passwords.forEach(pwd => {
+                const item = document.createElement('div');
+                item.className = 'password-item';
+                item.innerHTML = `
+                    <div class="password-content">
+                        <div class="password-value">${escapeHtml(pwd.value)}</div>
+                        <div class="password-meta">
+                            <span>${pwd.entropy_bits} bits</span> entropy | ${pwd.length} chars | Source: ${source}
+                        </div>
+                    </div>
+                    <button class="copy-btn" onclick="copyPassword(this, '${escapeHtml(pwd.value)}')">Copy</button>
+                `;
+                passwordList.appendChild(item);
+            });
+
+            resultsDiv.classList.add('visible');
+        }
+
+        function showError(title, message) {
+            const errorDiv = document.getElementById('errorMessage');
+            document.getElementById('errorTitle').textContent = title;
+            document.getElementById('errorDesc').textContent = message;
+            errorDiv.classList.add('visible');
+        }
+
+        function copyPassword(btn, value) {
+            navigator.clipboard.writeText(value).then(() => {
+                btn.textContent = 'Copied!';
+                btn.classList.add('copied');
+                setTimeout(() => {
+                    btn.textContent = 'Copy';
+                    btn.classList.remove('copied');
+                }, 2000);
+            });
+        }
+
+        function escapeHtml(text) {
+            const div = document.createElement('div');
+            div.textContent = text;
+            return div.innerHTML;
+        }
+
+        // Smooth scroll
+        document.querySelectorAll('a[href^="#"]').forEach(anchor => {
+            anchor.addEventListener('click', function(e) {
+                e.preventDefault();
+                const target = document.querySelector(this.getAttribute('href'));
+                if (target) {
+                    target.scrollIntoView({ behavior: 'smooth', block: 'start' });
+                }
+            });
+        });
+
+        // Periodic status check
+        setInterval(checkServerStatus, 10000);
+    </script>
+</body>
+</html>

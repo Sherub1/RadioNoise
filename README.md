@@ -109,11 +109,39 @@ python3 radionoise.py --use-rdseed
 | `--use-rdseed` | Utilise RDSEED au lieu de RDRAND |
 | `-q, --quiet` | Mode silencieux |
 
+## Installation
+
+```bash
+git clone https://github.com/Sherub1/RadioNoise.git
+cd RadioNoise
+pip install -r requirements.txt
+```
+
 ### Dépendances
 
-- Python 3 avec `numpy`, `scipy`
+- Python 3.8+
+- `numpy`, `scipy` (installer via `pip install -r requirements.txt`)
 - GCC (compilation automatique du module RDRAND)
 - `rtl_sdr` (optionnel, pour source RTL-SDR)
+
+## Interface Web
+
+Une interface web est disponible pour générer des mots de passe via le navigateur.
+
+### Démarrage
+
+```bash
+# Lancer le serveur
+python3 web/server.py
+
+# Ouvrir web/index.html dans un navigateur
+```
+
+Le serveur écoute sur `http://127.0.0.1:8742`. L'interface permet de :
+- Choisir le type (mot de passe ou passphrase)
+- Définir la longueur et le nombre
+- Sélectionner le jeu de caractères
+- Activer les 15 tests NIST complets (optionnel)
 
 ### Sécurité
 
