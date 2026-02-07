@@ -6,7 +6,7 @@ RadioNoise extracts cryptographic-quality random data through a multi-stage pipe
 
 ```mermaid
 flowchart LR
-    A["📡 RTL-SDR Capture\n500K samples\n~488 KB"] --> B["⚖️ Von Neumann\nExtractor\n~15 KB"]
+    A["📡 RTL-SDR Capture\n500K samples 488 KB"] --> B["⚖️ Von Neumann\nExtractor\n~15 KB"]
     B --> C["🔒 SHA-512\nWhitening\n~15 KB"]
     C --> D["📊 NIST SP 800-22\nValidation\n9 or 15 tests"]
     D --> E["🔑 Password\nGeneration\nRejection sampling"]
