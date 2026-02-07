@@ -6,14 +6,14 @@ RadioNoise implements 15 tests from the NIST Special Publication 800-22 ("A Stat
 
 ```mermaid
 flowchart LR
-    A["Entropy\n(bytes)"] --> B["Unpack\nto bits"]
-    B --> C{"Fast or\nFull mode?"}
-    C -->|Fast| D["9 essential\ntests\n~1-2s"]
-    C -->|Full| E["15 complete\ntests\n~30s"]
-    D --> F{Pass rate\n≥ 95%?}
+    A["Entropy (bytes)"] --> B["Unpack to bits"]
+    B --> C{"Fast or Full mode?"}
+    C -->|Fast| D["9 essential tests 1-2s"]
+    C -->|Full| E["15 complete tests 30s"]
+    D --> F{Pass rate ≥ 95%?}
     E --> F
-    F -->|Yes| G["✅ Crypto\nquality"]
-    F -->|No| H["⚠️ Warning\nuser confirms"]
+    F -->|Yes| G["✅ Crypto quality"]
+    F -->|No| H["⚠️ Warning user confirms"]
 
     style G fill:#059669,color:#fff
     style H fill:#d97706,color:#fff
