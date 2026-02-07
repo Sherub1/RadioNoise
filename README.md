@@ -1,150 +1,149 @@
-# RadioNoise : Générer du vrai hasard avec une clé RTL-SDR
+# RadioNoise
 
-## Introduction
+**True Random Number Generator using RTL-SDR radio noise**
 
-Les générateurs pseudo-aléatoires (PRNG) utilisés par les ordinateurs produisent des séquences déterministes. Pour les applications cryptographiques, cette prévisibilité constitue une vulnérabilité. Une alternative consiste à exploiter des phénomènes physiques comme source d'entropie.
+[![Python 3.10+](https://img.shields.io/badge/python-3.10%2B-blue.svg)](https://www.python.org/downloads/)
+[![License: MIT](https://img.shields.io/badge/license-MIT-green.svg)](LICENSE)
+[![NIST SP 800-22](https://img.shields.io/badge/NIST-SP%20800--22-orange.svg)](docs/nist-tests.md)
 
-RadioNoise utilise le bruit électromagnétique capté par un récepteur RTL-SDR comme source de hasard. Ce bruit résulte de la superposition de plusieurs phénomènes :
+[Version française](README.fr.md)
 
-- **Bruit thermique (Johnson-Nyquist)** : fluctuations de tension causées par l'agitation thermique des porteurs de charge dans les conducteurs
-- **Bruit atmosphérique** : perturbations électromagnétiques d'origine météorologique
-- **Bruit galactique** : rayonnement de fond d'origine cosmique
-- **Bruit de grenaille** : fluctuations liées au caractère discret des charges électriques
+RadioNoise generates cryptographic-quality passwords and passphrases from physical radio noise captured by an RTL-SDR USB dongle (~$10-30). The noise is processed through a multi-stage extraction and validation pipeline before use.
 
-## Méthode d'extraction
+> **Scientific note**: The captured noise is predominantly thermal (Johnson-Nyquist), arising from classical statistical mechanics. It is computationally unpredictable but not fundamentally indeterministic like quantum phenomena. For cryptographic purposes, this distinction is irrelevant. See [Entropy Pipeline](docs/entropy-pipeline.md) for details.
 
-Le signal brut capturé présente des biais statistiques liés aux caractéristiques du récepteur. L'extracteur de Von Neumann corrige ce problème en analysant les bits par paires :
+## Features
 
-- Si deux bits consécutifs diffèrent (01 ou 10), le premier bit est conservé
-- Si deux bits sont identiques (00 ou 11), la paire est rejetée
+- **Hardware entropy** from RTL-SDR radio noise, with automatic fallback to CPU RNG (RDRAND/RDSEED) or system CSPRNG
+- **Von Neumann extraction** removes ADC bias, **SHA-512 whitening** ensures uniform distribution
+- **15 NIST SP 800-22 tests** validate entropy quality before use (fast 9-test or full 15-test mode)
+- **Passwords and passphrases** generated with rejection sampling (no modulo bias), using the EFF large wordlist (7776 words, ~12.9 bits/word)
+- **Cryptographic traceability**: SHA-256 hash chain proofs, SQLite blockchain audit trail, AES-256-GCM encrypted backups
+- **PyQt6 GUI** with dark theme, secure password display, clipboard auto-clear, and progressive tab workflow
 
-Cette méthode garantit une distribution uniforme en sortie, indépendamment du biais initial, au prix d'une réduction du débit (efficacité théorique de 25%, environ 3% en pratique avec les corrélations du signal).
+## Pipeline
 
-## Validation expérimentale
+```mermaid
+flowchart LR
+    A["📡 RTL-SDR\nRadio Noise"] --> B["⚖️ Von Neumann\nBias Removal"]
+    B --> C["🔒 SHA-512\nWhitening"]
+    C --> D["📊 NIST\nValidation"]
+    D --> E["🔑 Password\nGeneration"]
 
-Une capture réalisée le 27 janvier 2025 illustre le processus :
-
-| Paramètre | Valeur |
-|-----------|--------|
-| Fréquence centrale | 100 MHz |
-| Taux d'échantillonnage | 2.4 MS/s |
-| Volume capturé | 3,500 Ko |
-| Volume extrait | 109 Ko |
-| Efficacité | 3.1% |
-
-L'analyse des données extraites confirme leur qualité :
-
-| Mesure | Résultat |
-|--------|----------|
-| Entropie de Shannon | 7.9986 bits/octet |
-| Ratio bits 0/1 | 49.99% / 50.01% |
-| Autocorrélation | < 0.002 |
-| Tests NIST SP 800-22 | 7/7 réussis |
-
-Ces résultats attestent d'une qualité suffisante pour un usage cryptographique. Les données extraites sont statistiquement indiscernables d'une source parfaitement aléatoire.
-
-## Limites
-
-Le bruit thermique, qui constitue la composante dominante du signal capturé, relève de la physique statistique classique et non de la mécanique quantique. L'imprévisibilité obtenue est donc pratique plutôt que fondamentale. Néanmoins, la complexité des interactions thermiques rend toute prédiction computationnellement impossible, ce qui suffit pour les applications cryptographiques courantes.
-
-## Générateur de mots de passe
-
-### Pipeline de traitement
-
-```
-[Source Entropie] → [Extraction Von Neumann] → [Whitening SHA-512] → [Tests NIST] → [Mots de passe]
+    style A fill:#2d5986,color:#fff
+    style B fill:#8b5cf6,color:#fff
+    style C fill:#059669,color:#fff
+    style D fill:#d97706,color:#fff
+    style E fill:#dc2626,color:#fff
 ```
 
-### Sources d'entropie (par priorité)
-
-1. **RTL-SDR** - Bruit radio (thermique + atmosphérique) capturé via dongle USB
-2. **RDRAND** - RNG matériel CPU Intel/AMD (DRBG interne)
-3. **RDSEED** - Entropie directe CPU (plus lent, plus pur)
-4. **CSPRNG** - `secrets.token_bytes()` (fallback ultime)
-
-Le script bascule automatiquement vers la source suivante si la précédente n'est pas disponible.
-
-### Tests NIST implémentés
-
-| Mode | Tests | Temps |
-|------|-------|-------|
-| Rapide (défaut) | 9 tests essentiels | ~1-2s |
-| Complet (`--full-test`) | 15 tests SP 800-22 | ~30s |
-
-Tests inclus : Frequency, Block Frequency, Runs, Longest Run, Spectral (DFT), Serial, Approximate Entropy, Cumulative Sums, Binary Matrix Rank, Template Matching, Maurer's Universal, Linear Complexity, Random Excursions.
-
-### Utilisation
-
-```bash
-# Génération standard (5 mots de passe, 16 caractères)
-python3 radionoise.py
-
-# Personnaliser longueur et nombre
-python3 radionoise.py -l 20 -n 10
-
-# Passphrases (mots)
-python3 radionoise.py -p -l 6
-
-# Suite complète NIST (plus lent)
-python3 radionoise.py --full-test
-
-# Test d'un fichier d'entropie existant
-python3 radionoise.py -f entropy.bin --test-only
-
-# Forcer RDSEED au lieu de RDRAND
-python3 radionoise.py --use-rdseed
-```
-
-### Options principales
-
-| Option | Description |
-|--------|-------------|
-| `-l, --length` | Longueur du mot de passe (défaut: 16) |
-| `-n, --count` | Nombre de mots de passe (défaut: 5) |
-| `-c, --charset` | Jeu de caractères: `alnum`, `alpha`, `digits`, `hex`, `full`, `safe` |
-| `-p, --passphrase` | Génère des passphrases (mots séparés par `-`) |
-| `-f, --file` | Utilise un fichier d'entropie existant |
-| `--full-test` | Suite complète des 15 tests NIST |
-| `--no-test` | Désactive la validation NIST |
-| `--use-rdseed` | Utilise RDSEED au lieu de RDRAND |
-| `-q, --quiet` | Mode silencieux |
-
-## Installation
+## Quick Start
 
 ```bash
 git clone https://github.com/Sherub1/RadioNoise.git
 cd RadioNoise
 pip install -r requirements.txt
+python RadioNoise.py -n 5 -l 20
 ```
 
-### Dépendances
+For detailed setup (RTL-SDR drivers, OS-specific instructions), see [INSTALL.md](INSTALL.md).
 
-- Python 3.8+
-- `numpy`, `scipy` (installer via `pip install -r requirements.txt`)
-- GCC (compilation automatique du module RDRAND)
-- `rtl_sdr` (optionnel, pour source RTL-SDR)
+## Usage
 
-## Interface Web
-
-Une interface web est disponible pour générer des mots de passe via le navigateur.
-
-### Démarrage
+### CLI
 
 ```bash
-# Lancer le serveur
-python3 web/server.py
+# Passwords (default: 5 passwords, 16 chars, safe charset)
+python RadioNoise.py
 
-# Ouvrir web/index.html dans un navigateur
+# Custom length and count
+python RadioNoise.py -n 10 -l 24 -c full
+
+# Passphrases (6 words, ~77.5 bits entropy)
+python RadioNoise.py -p -l 6
+
+# Full NIST test suite (15 tests)
+python RadioNoise.py --full-test -n 5
+
+# Generate with cryptographic proof
+python RadioNoise.py --proof -n 1 -l 24
+
+# Verify a proof
+python RadioNoise.py --verify proof.json
 ```
 
-Le serveur écoute sur `http://127.0.0.1:8742`. L'interface permet de :
-- Choisir le type (mot de passe ou passphrase)
-- Définir la longueur et le nombre
-- Sélectionner le jeu de caractères
-- Activer les 15 tests NIST complets (optionnel)
+See [CLI Reference](docs/cli-reference.md) for all options.
 
-### Sécurité
+### GUI
 
-- **Effacement mémoire** : `secure_zero()` tente d'effacer les données sensibles (best-effort en Python)
-- **Rejection sampling** : Évite les biais de modulo lors de la conversion bytes→caractères
-- **Seuil NIST** : p-value >= 0.01 (confiance 99%)
+```bash
+pip install PyQt6
+python radionoise_gui.py
+```
+
+The GUI provides a 4-tab workflow: Capture → NIST Tests → Generate → Traceability. See [GUI Guide](docs/gui-guide.md).
+
+### Python API
+
+```python
+from radionoise import capture_entropy, generate_password, NISTTests
+
+# Capture and validate entropy
+entropy = capture_entropy(samples=500000)
+results = NISTTests.run_all_tests(entropy, fast_mode=True)
+
+# Generate a password
+password = generate_password(entropy, length=20, charset='safe')
+```
+
+See [API Reference](docs/api-reference.md) for the complete API.
+
+## Entropy Sources
+
+| Priority | Source | Type | Availability |
+|----------|--------|------|--------------|
+| 1 | RTL-SDR | Radio noise (thermal + atmospheric) | Requires USB dongle |
+| 2 | RDRAND | CPU hardware DRBG | Intel/AMD CPUs |
+| 3 | RDSEED | CPU direct entropy | Intel/AMD CPUs (slower) |
+| 4 | CSPRNG | `secrets.token_bytes()` | Always available |
+
+RadioNoise automatically falls back through the chain if the preferred source is unavailable.
+
+## Documentation
+
+| Document | Description |
+|----------|-------------|
+| [Installation](INSTALL.md) | Setup guide for all platforms |
+| [Architecture](docs/architecture.md) | System design and module dependencies |
+| [Entropy Pipeline](docs/entropy-pipeline.md) | How raw noise becomes entropy |
+| [NIST Tests](docs/nist-tests.md) | Statistical validation details |
+| [Traceability](docs/traceability.md) | Proofs, audit trail, encrypted backups |
+| [GUI Guide](docs/gui-guide.md) | Graphical interface walkthrough |
+| [Security Model](docs/security.md) | Threat model and cryptographic details |
+| [API Reference](docs/api-reference.md) | Python package API |
+| [CLI Reference](docs/cli-reference.md) | Command-line options |
+
+## Project Structure
+
+```
+radionoise/
+├── core/
+│   ├── entropy.py          # Capture, Von Neumann, SHA-512
+│   ├── nist.py             # 15 NIST SP 800-22 tests
+│   ├── generator.py        # Password/passphrase generation
+│   ├── wordlist.py         # EFF large wordlist (7776 words)
+│   └── security.py         # Secure memory operations
+├── traceability/
+│   ├── proof.py            # Cryptographic proof of generation
+│   ├── audit.py            # SQLite blockchain audit trail
+│   └── backup.py           # AES-256-GCM encrypted backups
+└── gui/
+    ├── main_window.py      # PyQt6 main window (4 tabs)
+    ├── widgets/            # Tab widgets + secure displays
+    ├── workers/            # QThread async workers
+    └── styles/             # Dark theme
+```
+
+## License
+
+[MIT](LICENSE)
