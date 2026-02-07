@@ -8,7 +8,7 @@
 
 [Version française](README.fr.md)
 
-RadioNoise generates cryptographic-quality passwords and passphrases from physical radio noise captured by an RTL-SDR USB dongle (~$10-30). The noise is processed through a multi-stage extraction and validation pipeline before use.
+RadioNoise generates cryptographic-quality passwords and passphrases from physical radio noise captured by an RTL-SDR USB dongle. The noise is processed through a multi-stage extraction and validation pipeline before use.
 
 > **Scientific note**: The captured noise is predominantly thermal (Johnson-Nyquist), arising from classical statistical mechanics. It is computationally unpredictable but not fundamentally indeterministic like quantum phenomena. For cryptographic purposes, this distinction is irrelevant. See [Entropy Pipeline](docs/entropy-pipeline.md) for details.
 
