@@ -1,0 +1,1417 @@
+<!DOCTYPE html>
+<html lang="fr">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>RadioNoise — Architecture Complète</title>
+<style>
+  @import url('https://fonts.googleapis.com/css2?family=IBM+Plex+Mono:wght@300;400;500;600;700&family=Outfit:wght@300;400;500;600;700;800;900&display=swap');
+
+  :root {
+    --bg: #06080d;
+    --bg2: #0b0e16;
+    --surface: #10141e;
+    --surface2: #161c2a;
+    --surface3: #1c2436;
+    --border: #252e42;
+    --border-hi: #3a4666;
+    --text: #dde1eb;
+    --text2: #8892a8;
+    --text3: #5a6380;
+
+    --radio: #ff6b35;
+    --radio-bg: rgba(255,107,53,0.08);
+    --radio-b: rgba(255,107,53,0.25);
+
+    --signal: #00b8d4;
+    --signal-bg: rgba(0,184,212,0.08);
+    --signal-b: rgba(0,184,212,0.25);
+
+    --hash: #8b5cf6;
+    --hash-bg: rgba(139,92,246,0.08);
+    --hash-b: rgba(139,92,246,0.25);
+
+    --nist: #f59e0b;
+    --nist-bg: rgba(245,158,11,0.08);
+    --nist-b: rgba(245,158,11,0.25);
+
+    --gen: #10b981;
+    --gen-bg: rgba(16,185,129,0.08);
+    --gen-b: rgba(16,185,129,0.25);
+
+    --proof: #ec4899;
+    --proof-bg: rgba(236,72,153,0.08);
+    --proof-b: rgba(236,72,153,0.25);
+
+    --backup: #06b6d4;
+    --backup-bg: rgba(6,182,212,0.08);
+    --backup-b: rgba(6,182,212,0.25);
+
+    --gui: #a78bfa;
+    --gui-bg: rgba(167,139,250,0.08);
+    --gui-b: rgba(167,139,250,0.25);
+  }
+
+  * { margin: 0; padding: 0; box-sizing: border-box; }
+
+  body {
+    background: var(--bg);
+    color: var(--text);
+    font-family: 'IBM Plex Mono', monospace;
+    line-height: 1.6;
+    overflow-x: hidden;
+  }
+
+  /* Subtle grain */
+  body::before {
+    content: '';
+    position: fixed;
+    inset: 0;
+    opacity: 0.025;
+    pointer-events: none;
+    background: url("data:image/svg+xml,%3Csvg viewBox='0 0 512 512' xmlns='http://www.w3.org/2000/svg'%3E%3Cfilter id='n'%3E%3CfeTurbulence baseFrequency='0.7' numOctaves='4'/%3E%3C/filter%3E%3Crect width='100%25' height='100%25' filter='url(%23n)'/%3E%3C/svg%3E");
+    z-index: 9999;
+  }
+
+  /* ========== HEADER ========== */
+  .hero {
+    position: relative;
+    text-align: center;
+    padding: 80px 24px 50px;
+    overflow: hidden;
+  }
+
+  .hero::before {
+    content: '';
+    position: absolute;
+    top: -200px; left: 50%; transform: translateX(-50%);
+    width: 800px; height: 800px;
+    background: radial-gradient(circle, rgba(139,92,246,0.06) 0%, rgba(0,184,212,0.03) 40%, transparent 70%);
+    pointer-events: none;
+  }
+
+  .hero-badge {
+    display: inline-flex;
+    align-items: center;
+    gap: 8px;
+    padding: 6px 16px;
+    border-radius: 20px;
+    background: var(--surface);
+    border: 1px solid var(--border);
+    font-size: 0.65rem;
+    color: var(--text2);
+    margin-bottom: 24px;
+    letter-spacing: 0.08em;
+  }
+
+  .hero-badge .dot { width: 6px; height: 6px; border-radius: 50%; background: var(--gen); animation: blink 2s ease infinite; }
+
+  @keyframes blink { 0%,100%{opacity:1} 50%{opacity:0.3} }
+
+  .hero h1 {
+    font-family: 'Outfit', sans-serif;
+    font-size: clamp(2.2rem, 6vw, 4rem);
+    font-weight: 900;
+    letter-spacing: -0.03em;
+    line-height: 1.1;
+    margin-bottom: 12px;
+  }
+
+  .hero h1 .grad {
+    background: linear-gradient(135deg, var(--radio) 0%, var(--hash) 40%, var(--signal) 70%, var(--gen) 100%);
+    -webkit-background-clip: text;
+    -webkit-text-fill-color: transparent;
+  }
+
+  .hero .tagline {
+    font-size: 0.85rem;
+    color: var(--text2);
+    max-width: 600px;
+    margin: 0 auto;
+  }
+
+  /* ========== NAV PIPELINE ========== */
+  .nav-pipe {
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    gap: 4px;
+    padding: 28px 16px;
+    flex-wrap: wrap;
+    max-width: 1100px;
+    margin: 0 auto 20px;
+  }
+
+  .nav-node {
+    display: flex;
+    align-items: center;
+    gap: 4px;
+    font-size: 0.6rem;
+    font-weight: 600;
+    letter-spacing: 0.04em;
+    padding: 7px 14px;
+    border-radius: 8px;
+    border: 1px solid var(--border);
+    background: var(--surface);
+    transition: all 0.25s;
+    cursor: default;
+    white-space: nowrap;
+  }
+
+  .nav-node:hover { transform: translateY(-1px); border-color: var(--border-hi); }
+
+  .nav-sep { color: var(--text3); font-size: 0.7rem; margin: 0 2px; }
+
+  /* ========== LAYOUT ========== */
+  .wrap {
+    max-width: 1080px;
+    margin: 0 auto;
+    padding: 0 20px 80px;
+  }
+
+  /* ========== SECTION ========== */
+  .sect {
+    margin-bottom: 56px;
+    opacity: 0;
+    transform: translateY(24px);
+    animation: up .5s ease forwards;
+  }
+
+  .sect:nth-child(1){animation-delay:.05s} .sect:nth-child(2){animation-delay:.1s}
+  .sect:nth-child(3){animation-delay:.15s} .sect:nth-child(4){animation-delay:.2s}
+  .sect:nth-child(5){animation-delay:.25s} .sect:nth-child(6){animation-delay:.3s}
+  .sect:nth-child(7){animation-delay:.35s} .sect:nth-child(8){animation-delay:.4s}
+  .sect:nth-child(9){animation-delay:.45s} .sect:nth-child(10){animation-delay:.5s}
+
+  @keyframes up { to { opacity:1; transform:translateY(0); } }
+
+  .sect-head {
+    display: flex;
+    align-items: center;
+    gap: 14px;
+    margin-bottom: 20px;
+  }
+
+  .sect-icon {
+    width: 42px; height: 42px;
+    border-radius: 11px;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    font-size: 1rem;
+    flex-shrink: 0;
+    font-weight: 700;
+  }
+
+  .sect-head h2 {
+    font-family: 'Outfit', sans-serif;
+    font-size: 1.3rem;
+    font-weight: 700;
+    line-height: 1.2;
+  }
+
+  .sect-head .sub {
+    font-size: 0.7rem;
+    color: var(--text2);
+    margin-top: 2px;
+  }
+
+  /* ========== CARDS ========== */
+  .card {
+    background: var(--surface);
+    border: 1px solid var(--border);
+    border-radius: 14px;
+    padding: 24px;
+    transition: border-color 0.3s;
+  }
+
+  .card:hover { border-color: var(--border-hi); }
+
+  .card h3 {
+    font-family: 'Outfit', sans-serif;
+    font-size: 0.9rem;
+    font-weight: 600;
+    margin-bottom: 8px;
+  }
+
+  .card p, .card .txt {
+    font-size: 0.72rem;
+    color: var(--text2);
+    line-height: 1.7;
+  }
+
+  .mono {
+    font-family: 'IBM Plex Mono', monospace;
+    font-size: 0.65rem;
+    padding: 2px 7px;
+    border-radius: 4px;
+    background: var(--surface2);
+    border: 1px solid var(--border);
+  }
+
+  /* ========== FLOW ROWS ========== */
+  .flow-h {
+    display: flex;
+    align-items: stretch;
+    gap: 0;
+  }
+
+  .flow-h .card { flex: 1; min-width: 0; }
+
+  .arrow-h {
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    width: 44px;
+    flex-shrink: 0;
+    font-size: 1.1rem;
+    color: var(--text3);
+  }
+
+  @media (max-width: 720px) {
+    .flow-h { flex-direction: column; }
+    .arrow-h { width: auto; height: 28px; transform: rotate(90deg); }
+  }
+
+  /* ========== GRID LAYOUTS ========== */
+  .grid-2 { display: grid; grid-template-columns: 1fr 1fr; gap: 16px; }
+  .grid-3 { display: grid; grid-template-columns: 1fr 1fr 1fr; gap: 16px; }
+  .grid-4 { display: grid; grid-template-columns: repeat(4, 1fr); gap: 10px; }
+
+  @media (max-width: 720px) {
+    .grid-2, .grid-3 { grid-template-columns: 1fr; }
+    .grid-4 { grid-template-columns: repeat(2, 1fr); }
+  }
+
+  /* ========== STATS / BADGES ========== */
+  .badge {
+    display: inline-flex;
+    align-items: center;
+    gap: 6px;
+    padding: 5px 11px;
+    border-radius: 7px;
+    font-size: 0.62rem;
+    font-weight: 500;
+    margin-top: 10px;
+    margin-right: 6px;
+  }
+
+  .badge .bdot { width: 5px; height: 5px; border-radius: 50%; background: currentColor; }
+
+  .stats-row {
+    display: flex;
+    flex-wrap: wrap;
+    gap: 8px;
+    margin-top: 12px;
+  }
+
+  .pill {
+    background: var(--surface2);
+    border: 1px solid var(--border);
+    border-radius: 18px;
+    padding: 5px 12px;
+    font-size: 0.62rem;
+    display: inline-flex;
+    align-items: center;
+    gap: 5px;
+  }
+
+  .pill .v { font-weight: 700; }
+
+  /* ========== WAVEFORM ========== */
+  .wave-row {
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    gap: 2px;
+    height: 28px;
+    margin: 10px 0;
+  }
+
+  .wave-row .b {
+    width: 3px;
+    border-radius: 2px;
+    animation: wv 1.4s ease-in-out infinite;
+  }
+
+  @keyframes wv { 0%,100%{height:4px;opacity:0.25} 50%{height:24px;opacity:1} }
+
+  /* ========== VON NEUMANN GRID ========== */
+  .vn-cell {
+    background: var(--surface2);
+    border-radius: 9px;
+    padding: 12px;
+    text-align: center;
+    border: 1px solid var(--border);
+    transition: transform 0.2s;
+  }
+  .vn-cell:hover { transform: translateY(-2px); }
+  .vn-cell .pair { font-size: 1.15rem; font-weight: 700; margin-bottom: 3px; }
+  .vn-cell .res { font-size: 0.62rem; color: var(--text2); }
+  .vn-cell.ok { border-color: var(--gen-b); }
+  .vn-cell.ok .pair { color: var(--gen); }
+  .vn-cell.no { border-color: rgba(239,68,68,0.25); opacity: 0.5; }
+  .vn-cell.no .pair { color: #ef4444; text-decoration: line-through; }
+
+  /* ========== NIST TEST TABLE ========== */
+  .nist-grid {
+    display: grid;
+    grid-template-columns: repeat(auto-fill, minmax(180px, 1fr));
+    gap: 8px;
+  }
+
+  .nist-item {
+    background: var(--surface2);
+    border: 1px solid var(--border);
+    border-radius: 9px;
+    padding: 10px 14px;
+    display: flex;
+    align-items: center;
+    gap: 8px;
+    font-size: 0.68rem;
+    transition: border-color 0.2s;
+  }
+
+  .nist-item:hover { border-color: var(--nist-b); }
+
+  .nist-item .nist-dot {
+    width: 8px; height: 8px;
+    border-radius: 50%;
+    background: var(--nist);
+    flex-shrink: 0;
+    animation: blink 3s ease infinite;
+  }
+
+  .nist-item.fast .nist-dot { background: var(--gen); }
+
+  /* ========== PASSWORD DISPLAY ========== */
+  .pwd-box {
+    background: var(--surface2);
+    border: 2px solid var(--gen);
+    border-radius: 14px;
+    padding: 22px;
+    text-align: center;
+    position: relative;
+    overflow: hidden;
+  }
+
+  .pwd-box::before {
+    content: '';
+    position: absolute;
+    inset: 0;
+    background: linear-gradient(135deg, var(--gen-bg), transparent 60%);
+    pointer-events: none;
+  }
+
+  .pwd-box .pwd { font-size: 1.3rem; font-weight: 700; letter-spacing: 0.12em; color: var(--gen); position: relative; }
+  .pwd-box .meta { font-size: 0.62rem; color: var(--text2); margin-top: 6px; position: relative; }
+
+  .phrase-box {
+    background: var(--surface2);
+    border: 2px solid var(--hash);
+    border-radius: 14px;
+    padding: 22px;
+    text-align: center;
+    position: relative;
+    overflow: hidden;
+    margin-top: 12px;
+  }
+
+  .phrase-box::before {
+    content: '';
+    position: absolute;
+    inset: 0;
+    background: linear-gradient(135deg, var(--hash-bg), transparent 60%);
+    pointer-events: none;
+  }
+
+  .phrase-box .phrase { font-size: 1.1rem; font-weight: 600; color: var(--hash); position: relative; word-spacing: 0.3em; }
+  .phrase-box .meta { font-size: 0.62rem; color: var(--text2); margin-top: 6px; position: relative; }
+
+  /* ========== JSON BLOCK ========== */
+  .json {
+    background: var(--surface);
+    border: 1px solid var(--border);
+    border-radius: 14px;
+    padding: 24px;
+    font-size: 0.7rem;
+    line-height: 2;
+    overflow-x: auto;
+    position: relative;
+  }
+
+  .json::before {
+    content: attr(data-file);
+    position: absolute;
+    top: -9px; left: 14px;
+    background: var(--surface2);
+    padding: 1px 10px;
+    border-radius: 5px;
+    font-size: 0.58rem;
+    color: var(--text3);
+    border: 1px solid var(--border);
+  }
+
+  .jk { color: var(--signal); }
+  .js { color: var(--gen); }
+  .jn { color: var(--radio); }
+  .jc { color: var(--text3); font-style: italic; font-size: 0.62rem; }
+
+  /* ========== CHAIN ========== */
+  .chain-row {
+    display: flex;
+    align-items: center;
+    gap: 0;
+    overflow-x: auto;
+    padding: 16px 0;
+  }
+
+  .chain-blk {
+    background: var(--surface);
+    border: 1px solid var(--border);
+    border-radius: 12px;
+    padding: 16px 18px;
+    min-width: 130px;
+    text-align: center;
+    flex-shrink: 0;
+    transition: all 0.25s;
+  }
+
+  .chain-blk:hover { border-color: var(--gen); box-shadow: 0 0 24px var(--gen-bg); }
+
+  .chain-blk .cnum { font-family: 'Outfit', sans-serif; font-weight: 800; font-size: 1.05rem; color: var(--gen); margin-bottom: 4px; }
+  .chain-blk .chash { font-size: 0.52rem; color: var(--text3); background: var(--surface2); padding: 3px 7px; border-radius: 5px; margin-top: 5px; word-break: break-all; }
+
+  .chain-link {
+    width: 36px; height: 3px; flex-shrink: 0; position: relative;
+  }
+
+  .chain-link::before {
+    content: '';
+    position: absolute;
+    inset: 0;
+    background: linear-gradient(90deg, var(--gen), var(--hash));
+    border-radius: 2px;
+    animation: cpulse 2.5s ease infinite;
+  }
+
+  @keyframes cpulse { 0%,100%{opacity:0.3} 50%{opacity:1} }
+
+  /* ========== VERIFY FLOW ========== */
+  .vflow {
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    gap: 0;
+  }
+
+  .vstep {
+    background: var(--surface);
+    border: 1px solid var(--border);
+    border-radius: 12px;
+    padding: 16px 26px;
+    text-align: center;
+    width: 100%;
+    max-width: 380px;
+  }
+
+  .vstep h4 { font-family: 'Outfit', sans-serif; font-size: 0.82rem; margin-bottom: 4px; }
+  .vstep p { font-size: 0.66rem; color: var(--text2); }
+
+  .varrow { height: 26px; display: flex; align-items: center; justify-content: center; color: var(--text3); font-size: 0.9rem; }
+
+  .vresults { display: flex; gap: 16px; width: 100%; max-width: 440px; }
+
+  .vr {
+    flex: 1;
+    border-radius: 12px;
+    padding: 16px;
+    text-align: center;
+    font-weight: 600;
+    font-size: 0.78rem;
+  }
+
+  .vr .vri { font-size: 1.5rem; margin-bottom: 4px; }
+  .vr .vrs { font-size: 0.6rem; font-weight: 400; opacity: 0.7; margin-top: 4px; }
+
+  .vr.ok { background: var(--gen-bg); border: 1px solid var(--gen); color: var(--gen); }
+  .vr.bad { background: rgba(239,68,68,0.06); border: 1px solid #ef4444; color: #ef4444; }
+
+  /* ========== FALLBACK CHAIN ========== */
+  .fallback-chain {
+    display: flex;
+    align-items: center;
+    gap: 0;
+    flex-wrap: wrap;
+    justify-content: center;
+  }
+
+  .fb-node {
+    background: var(--surface);
+    border: 1px solid var(--border);
+    border-radius: 12px;
+    padding: 16px 20px;
+    text-align: center;
+    min-width: 140px;
+    transition: all 0.25s;
+    position: relative;
+  }
+
+  .fb-node:hover { border-color: var(--border-hi); }
+
+  .fb-node .fb-pri {
+    position: absolute;
+    top: -8px; right: -8px;
+    width: 22px; height: 22px;
+    border-radius: 50%;
+    font-size: 0.55rem;
+    font-weight: 700;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+  }
+
+  .fb-node .fb-icon { font-size: 1.4rem; margin-bottom: 6px; }
+  .fb-node .fb-name { font-family: 'Outfit', sans-serif; font-size: 0.78rem; font-weight: 600; }
+  .fb-node .fb-desc { font-size: 0.6rem; color: var(--text2); margin-top: 3px; }
+
+  .fb-arrow {
+    width: 36px;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    flex-shrink: 0;
+    font-size: 0.8rem;
+    color: var(--text3);
+  }
+
+  @media (max-width: 720px) {
+    .fallback-chain { flex-direction: column; }
+    .fb-arrow { width: auto; height: 24px; transform: rotate(90deg); }
+  }
+
+  /* ========== ARCHITECTURE DIAGRAM ========== */
+  .arch-grid {
+    display: grid;
+    grid-template-columns: 1fr 1fr 1fr;
+    gap: 14px;
+  }
+
+  @media (max-width: 720px) {
+    .arch-grid { grid-template-columns: 1fr; }
+  }
+
+  .arch-mod {
+    border-radius: 14px;
+    padding: 20px;
+    border: 1px solid;
+  }
+
+  .arch-mod h3 {
+    font-family: 'Outfit', sans-serif;
+    font-size: 0.85rem;
+    font-weight: 700;
+    margin-bottom: 10px;
+    display: flex;
+    align-items: center;
+    gap: 8px;
+  }
+
+  .arch-file {
+    font-size: 0.62rem;
+    padding: 4px 0;
+    color: var(--text2);
+    border-bottom: 1px solid var(--border);
+    display: flex;
+    align-items: center;
+    gap: 6px;
+  }
+
+  .arch-file:last-child { border-bottom: none; }
+  .arch-file .af-icon { opacity: 0.5; font-size: 0.55rem; }
+
+  /* ========== GUI TABS ========== */
+  .gui-tabs {
+    display: grid;
+    grid-template-columns: repeat(4, 1fr);
+    gap: 12px;
+  }
+
+  @media (max-width: 720px) {
+    .gui-tabs { grid-template-columns: repeat(2, 1fr); }
+  }
+
+  .gui-tab {
+    border-radius: 12px;
+    padding: 18px;
+    text-align: center;
+    border: 1px solid var(--border);
+    background: var(--surface);
+    transition: all 0.25s;
+  }
+
+  .gui-tab:hover { border-color: var(--gui-b); transform: translateY(-2px); }
+
+  .gui-tab .gt-num {
+    font-family: 'Outfit', sans-serif;
+    font-size: 0.6rem;
+    font-weight: 700;
+    color: var(--gui);
+    letter-spacing: 0.08em;
+    margin-bottom: 6px;
+  }
+
+  .gui-tab .gt-icon { font-size: 1.6rem; margin-bottom: 8px; }
+
+  .gui-tab .gt-name {
+    font-family: 'Outfit', sans-serif;
+    font-size: 0.82rem;
+    font-weight: 600;
+    margin-bottom: 4px;
+  }
+
+  .gui-tab .gt-desc { font-size: 0.6rem; color: var(--text2); }
+
+  /* ========== BACKUP / RECOVERY ========== */
+  .recov-flow {
+    display: flex;
+    align-items: center;
+    gap: 0;
+    justify-content: center;
+    flex-wrap: wrap;
+  }
+
+  .recov-node {
+    background: var(--surface);
+    border: 1px solid var(--border);
+    border-radius: 12px;
+    padding: 18px 22px;
+    text-align: center;
+    min-width: 160px;
+    max-width: 220px;
+  }
+
+  .recov-node .rn-icon { font-size: 1.5rem; margin-bottom: 8px; }
+  .recov-node .rn-title { font-family: 'Outfit', sans-serif; font-size: 0.82rem; font-weight: 600; margin-bottom: 4px; }
+  .recov-node .rn-desc { font-size: 0.6rem; color: var(--text2); }
+
+  .recov-arrow {
+    width: 36px;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    font-size: 0.8rem;
+    color: var(--text3);
+    flex-shrink: 0;
+  }
+
+  @media (max-width: 720px) {
+    .recov-flow { flex-direction: column; }
+    .recov-arrow { width: auto; height: 24px; transform: rotate(90deg); }
+  }
+
+  /* ========== DIVIDERS ========== */
+  .divider {
+    height: 1px;
+    background: linear-gradient(90deg, transparent, var(--border), transparent);
+    margin: 40px 0;
+  }
+
+  /* ========== FOOTER ========== */
+  .footer {
+    text-align: center;
+    padding: 36px 20px;
+    border-top: 1px solid var(--border);
+    margin-top: 20px;
+  }
+
+  .footer p { font-size: 0.6rem; color: var(--text3); }
+
+  .footer a {
+    color: var(--gen);
+    text-decoration: none;
+  }
+
+  .desc { font-size: 0.75rem; color: var(--text2); line-height: 1.7; margin-bottom: 16px; }
+</style>
+</head>
+<body>
+
+<!-- ==================== HERO ==================== -->
+<header class="hero">
+  <div class="hero-badge"><div class="dot"></div>RTL-SDR · Python 3.10+ · MIT License</div>
+  <h1><span class="grad">RADIO NOISE</span></h1>
+  <p class="tagline">
+    Générateur de mots de passe &amp; passphrases cryptographiques à partir du bruit radio physique capturé par RTL-SDR — avec traçabilité complète et audit blockchain.
+  </p>
+</header>
+
+<!-- ==================== NAV PIPELINE ==================== -->
+<nav class="nav-pipe">
+  <div class="nav-node" style="color:var(--radio);">📡 Capture</div>
+  <div class="nav-sep">→</div>
+  <div class="nav-node" style="color:var(--signal);">⚡ Extraction</div>
+  <div class="nav-sep">→</div>
+  <div class="nav-node" style="color:var(--hash);">🔒 Blanchiment</div>
+  <div class="nav-sep">→</div>
+  <div class="nav-node" style="color:var(--nist);">📊 NIST</div>
+  <div class="nav-sep">→</div>
+  <div class="nav-node" style="color:var(--gen);">🔑 Génération</div>
+  <div class="nav-sep">→</div>
+  <div class="nav-node" style="color:var(--proof);">📜 Preuve</div>
+  <div class="nav-sep">→</div>
+  <div class="nav-node" style="color:var(--backup);">💾 Backup</div>
+</nav>
+
+<div class="wrap">
+
+  <!-- ================================================================ -->
+  <!--  SECTION 0: PROJECT ARCHITECTURE                                  -->
+  <!-- ================================================================ -->
+  <section class="sect">
+    <div class="sect-head">
+      <div class="sect-icon" style="background:var(--gui-bg); color:var(--gui); border:1px solid var(--gui-b);">🏗</div>
+      <div>
+        <h2>Architecture du Projet</h2>
+        <div class="sub">Structure modulaire · 3 packages · PyQt6 GUI</div>
+      </div>
+    </div>
+
+    <div class="arch-grid">
+      <div class="arch-mod" style="background:var(--radio-bg); border-color:var(--radio-b);">
+        <h3 style="color:var(--radio);">⚙️ radionoise/core/</h3>
+        <div class="arch-file"><span class="af-icon">📄</span> entropy.py — Capture, Von Neumann, SHA-512</div>
+        <div class="arch-file"><span class="af-icon">📄</span> nist.py — 15 tests NIST SP 800-22</div>
+        <div class="arch-file"><span class="af-icon">📄</span> generator.py — Mots de passe & passphrases</div>
+        <div class="arch-file"><span class="af-icon">📄</span> wordlist.py — EFF large wordlist (7776 mots)</div>
+        <div class="arch-file"><span class="af-icon">📄</span> security.py — Opérations mémoire sécurisées</div>
+      </div>
+
+      <div class="arch-mod" style="background:var(--proof-bg); border-color:var(--proof-b);">
+        <h3 style="color:var(--proof);">🔗 radionoise/traceability/</h3>
+        <div class="arch-file"><span class="af-icon">📄</span> proof.py — Preuve cryptographique (PoG)</div>
+        <div class="arch-file"><span class="af-icon">📄</span> audit.py — Blockchain audit SQLite</div>
+        <div class="arch-file"><span class="af-icon">📄</span> backup.py — Backup AES-256-GCM chiffré</div>
+      </div>
+
+      <div class="arch-mod" style="background:var(--gui-bg); border-color:var(--gui-b);">
+        <h3 style="color:var(--gui);">🖥 radionoise/gui/</h3>
+        <div class="arch-file"><span class="af-icon">📄</span> main_window.py — Fenêtre PyQt6 (4 tabs)</div>
+        <div class="arch-file"><span class="af-icon">📄</span> widgets/ — Widgets par onglet</div>
+        <div class="arch-file"><span class="af-icon">📄</span> workers/ — QThread async workers</div>
+        <div class="arch-file"><span class="af-icon">📄</span> styles/ — Dark theme</div>
+      </div>
+    </div>
+
+    <!-- GUI Tabs -->
+    <div style="margin-top:20px;">
+      <p class="desc">Interface graphique PyQt6 avec workflow progressif en 4 onglets :</p>
+      <div class="gui-tabs">
+        <div class="gui-tab">
+          <div class="gt-num">TAB 1</div>
+          <div class="gt-icon">📡</div>
+          <div class="gt-name">Capture</div>
+          <div class="gt-desc">Paramètres RTL-SDR, fréquence, échantillons, capture du bruit radio</div>
+        </div>
+        <div class="gui-tab">
+          <div class="gt-num">TAB 2</div>
+          <div class="gt-icon">📊</div>
+          <div class="gt-name">Tests NIST</div>
+          <div class="gt-desc">Validation statistique de l'entropie, mode rapide ou complet</div>
+        </div>
+        <div class="gui-tab">
+          <div class="gt-num">TAB 3</div>
+          <div class="gt-icon">🔑</div>
+          <div class="gt-name">Génération</div>
+          <div class="gt-desc">Passwords & passphrases, longueur, charset, affichage sécurisé</div>
+        </div>
+        <div class="gui-tab">
+          <div class="gt-num">TAB 4</div>
+          <div class="gt-icon">🔗</div>
+          <div class="gt-name">Traçabilité</div>
+          <div class="gt-desc">Preuves, vérification, audit trail, backups chiffrés</div>
+        </div>
+      </div>
+    </div>
+  </section>
+
+  <div class="divider"></div>
+
+  <!-- ================================================================ -->
+  <!--  SECTION 1: ENTROPY SOURCES & FALLBACK                            -->
+  <!-- ================================================================ -->
+  <section class="sect">
+    <div class="sect-head">
+      <div class="sect-icon" style="background:var(--radio-bg); color:var(--radio); border:1px solid var(--radio-b);">01</div>
+      <div>
+        <h2>Sources d'Entropie & Fallback</h2>
+        <div class="sub">RTL-SDR prioritaire · Fallback automatique vers CPU RNG ou CSPRNG</div>
+      </div>
+    </div>
+
+    <p class="desc">RadioNoise utilise une chaîne de fallback automatique : si la source préférée est indisponible, il bascule vers la suivante sans intervention.</p>
+
+    <div class="fallback-chain">
+      <div class="fb-node" style="border-color:var(--radio-b);">
+        <div class="fb-pri" style="background:var(--radio); color:#fff;">P1</div>
+        <div class="fb-icon">📡</div>
+        <div class="fb-name" style="color:var(--radio);">RTL-SDR</div>
+        <div class="fb-desc">Bruit radio (thermique + atmosphérique)</div>
+        <div class="fb-desc" style="margin-top:4px;"><span class="mono">Dongle USB requis</span></div>
+      </div>
+
+      <div class="fb-arrow">→</div>
+
+      <div class="fb-node" style="border-color:var(--hash-b);">
+        <div class="fb-pri" style="background:var(--hash); color:#fff;">P2</div>
+        <div class="fb-icon">🖥</div>
+        <div class="fb-name" style="color:var(--hash);">RDRAND</div>
+        <div class="fb-desc">CPU hardware DRBG</div>
+        <div class="fb-desc" style="margin-top:4px;"><span class="mono">Intel / AMD</span></div>
+      </div>
+
+      <div class="fb-arrow">→</div>
+
+      <div class="fb-node" style="border-color:var(--signal-b);">
+        <div class="fb-pri" style="background:var(--signal); color:#fff;">P3</div>
+        <div class="fb-icon">⚡</div>
+        <div class="fb-name" style="color:var(--signal);">RDSEED</div>
+        <div class="fb-desc">CPU entropie directe</div>
+        <div class="fb-desc" style="margin-top:4px;"><span class="mono">Plus lent</span></div>
+      </div>
+
+      <div class="fb-arrow">→</div>
+
+      <div class="fb-node" style="border-color:var(--gen-b);">
+        <div class="fb-pri" style="background:var(--gen); color:#fff;">P4</div>
+        <div class="fb-icon">🛡</div>
+        <div class="fb-name" style="color:var(--gen);">CSPRNG</div>
+        <div class="fb-desc">secrets.token_bytes()</div>
+        <div class="fb-desc" style="margin-top:4px;"><span class="mono">Toujours dispo</span></div>
+      </div>
+    </div>
+  </section>
+
+  <!-- ================================================================ -->
+  <!--  SECTION 2: CAPTURE RTL-SDR                                       -->
+  <!-- ================================================================ -->
+  <section class="sect">
+    <div class="sect-head">
+      <div class="sect-icon" style="background:var(--radio-bg); color:var(--radio); border:1px solid var(--radio-b);">02</div>
+      <div>
+        <h2>Capture du Bruit Radio</h2>
+        <div class="sub">RTL-SDR · Bruit thermique Johnson-Nyquist · Données I/Q brutes</div>
+      </div>
+    </div>
+
+    <div class="flow-h">
+      <div class="card">
+        <h3 style="color:var(--radio);">📡 Antenne Radio</h3>
+        <p>Réception des ondes électromagnétiques ambiantes — bruit thermique, atmosphérique, cosmique.</p>
+        <div class="wave-row">
+          <div class="b" style="background:var(--radio);animation-delay:0s"></div>
+          <div class="b" style="background:var(--radio);animation-delay:.1s"></div>
+          <div class="b" style="background:var(--radio);animation-delay:.2s"></div>
+          <div class="b" style="background:var(--radio);animation-delay:.3s"></div>
+          <div class="b" style="background:var(--radio);animation-delay:.15s"></div>
+          <div class="b" style="background:var(--radio);animation-delay:.35s"></div>
+          <div class="b" style="background:var(--radio);animation-delay:.05s"></div>
+          <div class="b" style="background:var(--radio);animation-delay:.25s"></div>
+          <div class="b" style="background:var(--radio);animation-delay:.4s"></div>
+          <div class="b" style="background:var(--radio);animation-delay:.12s"></div>
+        </div>
+      </div>
+      <div class="arrow-h">→</div>
+      <div class="card">
+        <h3 style="color:var(--radio);">🔌 Dongle RTL-SDR</h3>
+        <p>Numérisation du signal à <span class="mono">100 MHz</span>, zone hors bande FM pour maximiser le bruit thermique.</p>
+        <div class="stats-row">
+          <div class="pill"><span>Puissance</span> <span class="v" style="color:var(--radio);">-102 dBm</span></div>
+          <div class="pill"><span>Débit</span> <span class="v" style="color:var(--radio);">2.4 MS/s</span></div>
+        </div>
+      </div>
+      <div class="arrow-h">→</div>
+      <div class="card">
+        <h3 style="color:var(--radio);">💾 Données I/Q Brutes</h3>
+        <p><span class="mono">500 000</span> échantillons → <span class="mono">1 000 000</span> octets de données brutes.</p>
+        <div class="badge" style="background:var(--radio-bg); color:var(--radio); border:1px solid var(--radio-b);"><div class="bdot"></div> capture_hash · SHA-256</div>
+      </div>
+    </div>
+  </section>
+
+  <!-- ================================================================ -->
+  <!--  SECTION 3: VON NEUMANN EXTRACTION                                -->
+  <!-- ================================================================ -->
+  <section class="sect">
+    <div class="sect-head">
+      <div class="sect-icon" style="background:var(--signal-bg); color:var(--signal); border:1px solid var(--signal-b);">03</div>
+      <div>
+        <h2>Extraction d'Entropie</h2>
+        <div class="sub">Débiaisage Von Neumann · Suppression des biais ADC</div>
+      </div>
+    </div>
+
+    <div class="card">
+      <h3 style="color:var(--signal);">Extracteur Von Neumann</h3>
+      <p class="txt">Les paires de bits sont évaluées : seules les paires hétérogènes (01, 10) produisent un bit de sortie, garantissant une distribution parfaitement uniforme malgré les biais du convertisseur ADC.</p>
+
+      <div class="grid-4" style="margin-top:14px;">
+        <div class="vn-cell ok"><div class="pair">01</div><div class="res">→ 0 ✓</div></div>
+        <div class="vn-cell ok"><div class="pair">10</div><div class="res">→ 1 ✓</div></div>
+        <div class="vn-cell no"><div class="pair">00</div><div class="res">rejeté ✗</div></div>
+        <div class="vn-cell no"><div class="pair">11</div><div class="res">rejeté ✗</div></div>
+      </div>
+
+      <div class="stats-row">
+        <div class="pill"><span>Rejet</span> <span class="v" style="color:#ef4444;">~75%</span></div>
+        <div class="pill"><span>Entrée</span> <span class="v">1 000 000 o</span></div>
+        <div class="pill"><span>Sortie</span> <span class="v" style="color:var(--signal);">~250 000 o</span></div>
+      </div>
+
+      <div class="badge" style="background:var(--signal-bg); color:var(--signal); border:1px solid var(--signal-b);"><div class="bdot"></div> entropy_hash · SHA-256</div>
+    </div>
+  </section>
+
+  <!-- ================================================================ -->
+  <!--  SECTION 4: SHA-512 WHITENING                                     -->
+  <!-- ================================================================ -->
+  <section class="sect">
+    <div class="sect-head">
+      <div class="sect-icon" style="background:var(--hash-bg); color:var(--hash); border:1px solid var(--hash-b);">04</div>
+      <div>
+        <h2>Blanchiment Cryptographique</h2>
+        <div class="sub">Hachage itératif SHA-512 · Distribution uniforme garantie</div>
+      </div>
+    </div>
+
+    <div class="card">
+      <p class="txt">L'entropie extraite est découpée en blocs. Chaque bloc est haché avec SHA-512 en incluant son index, ce qui garantit un mélange uniforme même si l'entrée contenait des corrélations résiduelles.</p>
+
+      <div style="display:flex; align-items:center; gap:10px; flex-wrap:wrap; justify-content:center; margin:18px 0;">
+        <div style="background:var(--surface2); border:1px solid var(--border); border-radius:10px; padding:12px 16px; text-align:center;">
+          <div style="font-size:0.58rem; color:var(--text3); margin-bottom:3px;">Bloc 0</div>
+          <div style="font-size:0.72rem; color:var(--hash);">SHA-512(0 ∥ data₀)</div>
+        </div>
+        <span style="color:var(--text3);">→</span>
+        <div style="background:var(--surface2); border:1px solid var(--border); border-radius:10px; padding:12px 16px; text-align:center;">
+          <div style="font-size:0.58rem; color:var(--text3); margin-bottom:3px;">Bloc 1</div>
+          <div style="font-size:0.72rem; color:var(--hash);">SHA-512(1 ∥ data₁)</div>
+        </div>
+        <span style="color:var(--text3);">→</span>
+        <div style="background:var(--surface2); border:1px solid var(--border); border-radius:10px; padding:12px 16px; text-align:center;">
+          <div style="font-size:0.58rem; color:var(--text3); margin-bottom:3px;">···</div>
+          <div style="font-size:0.72rem; color:var(--hash);">SHA-512(N ∥ dataₙ)</div>
+        </div>
+      </div>
+
+      <div class="stats-row">
+        <div class="pill"><span>Algo</span> <span class="v" style="color:var(--hash);">SHA-512</span></div>
+        <div class="pill"><span>Sortie/bloc</span> <span class="v">512 bits</span></div>
+        <div class="pill"><span>Propriété</span> <span class="v" style="color:var(--gen);">Mélange uniforme</span></div>
+      </div>
+
+      <div class="badge" style="background:var(--hash-bg); color:var(--hash); border:1px solid var(--hash-b);"><div class="bdot"></div> processed_hash · SHA-256</div>
+    </div>
+  </section>
+
+  <!-- ================================================================ -->
+  <!--  SECTION 5: NIST VALIDATION                                       -->
+  <!-- ================================================================ -->
+  <section class="sect">
+    <div class="sect-head">
+      <div class="sect-icon" style="background:var(--nist-bg); color:var(--nist); border:1px solid var(--nist-b);">05</div>
+      <div>
+        <h2>Validation NIST SP 800-22</h2>
+        <div class="sub">15 tests statistiques · Mode rapide (9 tests) ou complet (15 tests)</div>
+      </div>
+    </div>
+
+    <p class="desc">Avant d'utiliser l'entropie, RadioNoise la valide avec la batterie de tests NIST SP 800-22. En mode rapide (<span class="mono">--fast</span>), 9 tests essentiels sont exécutés. En mode complet (<span class="mono">--full-test</span>), les 15 tests sont lancés.</p>
+
+    <div class="nist-grid">
+      <div class="nist-item fast"><div class="nist-dot"></div> Frequency (Monobit)</div>
+      <div class="nist-item fast"><div class="nist-dot"></div> Block Frequency</div>
+      <div class="nist-item fast"><div class="nist-dot"></div> Runs</div>
+      <div class="nist-item fast"><div class="nist-dot"></div> Longest Run of Ones</div>
+      <div class="nist-item fast"><div class="nist-dot"></div> Binary Matrix Rank</div>
+      <div class="nist-item fast"><div class="nist-dot"></div> DFT (Spectral)</div>
+      <div class="nist-item fast"><div class="nist-dot"></div> Serial</div>
+      <div class="nist-item fast"><div class="nist-dot"></div> Approximate Entropy</div>
+      <div class="nist-item fast"><div class="nist-dot"></div> Cumulative Sums</div>
+      <div class="nist-item"><div class="nist-dot"></div> Non-overlapping Template</div>
+      <div class="nist-item"><div class="nist-dot"></div> Overlapping Template</div>
+      <div class="nist-item"><div class="nist-dot"></div> Maurer's Universal</div>
+      <div class="nist-item"><div class="nist-dot"></div> Linear Complexity</div>
+      <div class="nist-item"><div class="nist-dot"></div> Random Excursions</div>
+      <div class="nist-item"><div class="nist-dot"></div> Random Excursions Var.</div>
+    </div>
+
+    <div class="stats-row" style="margin-top:14px;">
+      <div class="pill"><span style="color:var(--gen);">●</span> <span class="v">9 tests</span> mode rapide</div>
+      <div class="pill"><span style="color:var(--nist);">●</span> <span class="v">15 tests</span> mode complet</div>
+      <div class="pill"><span>Seuil</span> <span class="v">p-value > 0.01</span></div>
+    </div>
+  </section>
+
+  <!-- ================================================================ -->
+  <!--  SECTION 6: PASSWORD & PASSPHRASE GENERATION                      -->
+  <!-- ================================================================ -->
+  <section class="sect">
+    <div class="sect-head">
+      <div class="sect-icon" style="background:var(--gen-bg); color:var(--gen); border:1px solid var(--gen-b);">06</div>
+      <div>
+        <h2>Génération : Passwords &amp; Passphrases</h2>
+        <div class="sub">Rejection sampling (sans biais modulo) · Charsets multiples · EFF wordlist</div>
+      </div>
+    </div>
+
+    <div class="grid-2">
+      <div class="card">
+        <h3 style="color:var(--gen);">🔑 Mode Password</h3>
+        <p class="txt">Chaque octet d'entropie est mappé sur le charset via rejection sampling : seules les valeurs < <span class="mono">floor(256/N)*N</span> sont acceptées, éliminant le biais modulo.</p>
+        <div class="stats-row">
+          <div class="pill"><span>Charset safe</span> <span class="v">70 car.</span></div>
+          <div class="pill"><span>Charset full</span> <span class="v">94 car.</span></div>
+          <div class="pill"><span>Défaut</span> <span class="v">16 char</span></div>
+        </div>
+        <div class="pwd-box" style="margin-top:14px;">
+          <div class="pwd">k9#mP2$vL8nR4!xQ</div>
+          <div class="meta">16 caractères · charset safe · ~98.6 bits d'entropie</div>
+        </div>
+      </div>
+
+      <div class="card">
+        <h3 style="color:var(--hash);">📝 Mode Passphrase</h3>
+        <p class="txt">Sélection de mots dans la EFF Large Wordlist (7776 mots). Chaque mot apporte ~12.9 bits d'entropie. Rejection sampling appliqué aussi.</p>
+        <div class="stats-row">
+          <div class="pill"><span>Dictionnaire</span> <span class="v">EFF 7776</span></div>
+          <div class="pill"><span>Bits/mot</span> <span class="v">~12.9</span></div>
+          <div class="pill"><span>Défaut</span> <span class="v">6 mots</span></div>
+        </div>
+        <div class="phrase-box" style="margin-top:14px;">
+          <div class="phrase">correct horse battery staple wander echo</div>
+          <div class="meta">6 mots · ~77.5 bits d'entropie · log₂(7776⁶)</div>
+        </div>
+      </div>
+    </div>
+
+    <div class="badge" style="background:var(--gen-bg); color:var(--gen); border:1px solid var(--gen-b);"><div class="bdot"></div> password_hash · SHA-256</div>
+    <div style="margin-top:8px; font-size:0.65rem; color:var(--text3);">
+      Clipboard auto-clear après copie · Affichage sécurisé masqué en GUI · Mémoire effacée via security.py
+    </div>
+  </section>
+
+  <!-- ================================================================ -->
+  <!--  SECTION 7: PROOF OF GENERATION                                   -->
+  <!-- ================================================================ -->
+  <section class="sect">
+    <div class="sect-head">
+      <div class="sect-icon" style="background:var(--proof-bg); color:var(--proof); border:1px solid var(--proof-b);">07</div>
+      <div>
+        <h2>Preuve de Génération (PoG)</h2>
+        <div class="sub">Chaîne de hashes SHA-256 · Signature de liaison · Vérification offline</div>
+      </div>
+    </div>
+
+    <div class="json" data-file="proof.json">
+      <span style="color:var(--text3);">{</span><br>
+      &nbsp;&nbsp;<span class="jk">"timestamp"</span>: <span class="js">"2025-01-30T16:50:32Z"</span>, <span class="jc">// Moment exact de génération</span><br><br>
+      &nbsp;&nbsp;<span class="jk">"capture_hash"</span>: &nbsp;&nbsp;<span class="js">"a3f7b2...8e9"</span>, <span class="jc">// Empreinte données brutes</span><br>
+      &nbsp;&nbsp;<span class="jk">"entropy_hash"</span>: &nbsp;&nbsp;<span class="js">"c8d4e1...f2a"</span>, <span class="jc">// Après Von Neumann</span><br>
+      &nbsp;&nbsp;<span class="jk">"processed_hash"</span>: <span class="js">"9b5a2c...d7e"</span>, <span class="jc">// Après SHA-512 whitening</span><br>
+      &nbsp;&nbsp;<span class="jk">"password_hash"</span>: &nbsp;<span class="js">"f1e8d3...b4c"</span>, <span class="jc">// Hash du mot de passe final</span><br><br>
+      &nbsp;&nbsp;<span class="jk">"signature"</span>: <span class="js">"e5g9h2...k7m"</span>, <span class="jc">// SHA-256(ts + tous les hashes)</span><br><br>
+      &nbsp;&nbsp;<span class="jk">"metadata"</span>: {<br>
+      &nbsp;&nbsp;&nbsp;&nbsp;<span class="jk">"frequency"</span>: &nbsp;&nbsp;<span class="jn">100000000</span>, <span class="jc">// 100 MHz</span><br>
+      &nbsp;&nbsp;&nbsp;&nbsp;<span class="jk">"sample_rate"</span>: <span class="jn">2400000</span>, &nbsp;&nbsp;<span class="jc">// 2.4 MS/s</span><br>
+      &nbsp;&nbsp;&nbsp;&nbsp;<span class="jk">"samples"</span>: &nbsp;&nbsp;&nbsp;&nbsp;<span class="jn">500000</span>, &nbsp;&nbsp;&nbsp;<span class="jc">// Nombre d'échantillons</span><br>
+      &nbsp;&nbsp;&nbsp;&nbsp;<span class="jk">"source"</span>: &nbsp;&nbsp;&nbsp;&nbsp;&nbsp;<span class="js">"rtlsdr"</span> &nbsp;<span class="jc">// Source d'entropie utilisée</span><br>
+      &nbsp;&nbsp;}<br>
+      <span style="color:var(--text3);">}</span>
+    </div>
+  </section>
+
+  <!-- ================================================================ -->
+  <!--  SECTION 8: VERIFICATION                                          -->
+  <!-- ================================================================ -->
+  <section class="sect">
+    <div class="sect-head">
+      <div class="sect-icon" style="background:var(--gen-bg); color:var(--gen); border:1px solid var(--gen-b);">✓</div>
+      <div>
+        <h2>Vérification</h2>
+        <div class="sub">python RadioNoise.py --verify proof.json · Validation sans révéler le mot de passe</div>
+      </div>
+    </div>
+
+    <div class="vflow">
+      <div class="vstep">
+        <h4 style="color:var(--radio);">Mot de passe candidat</h4>
+        <p>Entrée fournie pour vérification</p>
+      </div>
+      <div class="varrow">↓</div>
+      <div class="vstep">
+        <h4 style="color:var(--hash);">SHA-256(candidat)</h4>
+        <p>Comparaison avec <span class="mono">password_hash</span> de la preuve</p>
+      </div>
+      <div class="varrow">↓</div>
+      <div class="vstep">
+        <h4 style="color:var(--signal);">Recalcul de la signature</h4>
+        <p>SHA-256(timestamp + capture_hash + entropy_hash + password_hash)</p>
+      </div>
+      <div class="varrow">↓</div>
+      <div class="vresults">
+        <div class="vr ok">
+          <div class="vri">✓</div>
+          VALIDÉ
+          <div class="vrs">Correspondance confirmée</div>
+        </div>
+        <div class="vr bad">
+          <div class="vri">✗</div>
+          INVALIDE
+          <div class="vrs">Falsification détectée</div>
+        </div>
+      </div>
+    </div>
+  </section>
+
+  <!-- ================================================================ -->
+  <!--  SECTION 9: BLOCKCHAIN AUDIT TRAIL                                -->
+  <!-- ================================================================ -->
+  <section class="sect">
+    <div class="sect-head">
+      <div class="sect-icon" style="background:var(--hash-bg); color:var(--hash); border:1px solid var(--hash-b);">⛓</div>
+      <div>
+        <h2>Chaîne d'Audit SQLite</h2>
+        <div class="sub">Blockchain interne · SQLite · Immuabilité vérifiable</div>
+      </div>
+    </div>
+
+    <p class="desc">Chaque génération est enregistrée dans une base SQLite locale avec un hash de chaîne liant chaque entrée à la précédente. Modifier un maillon casse toute la chaîne suivante.</p>
+
+    <div class="chain-row">
+      <div class="chain-blk">
+        <div class="cnum">#1</div>
+        <div style="font-size:0.62rem; color:var(--text2);">Genesis</div>
+        <div class="chash">SHA256("0"×64 + sig₁ + ts₁)</div>
+      </div>
+      <div class="chain-link"></div>
+      <div class="chain-blk">
+        <div class="cnum">#2</div>
+        <div style="font-size:0.62rem; color:var(--text2);">Chaîné</div>
+        <div class="chash">SHA256(prev + sig₂ + ts₂)</div>
+      </div>
+      <div class="chain-link"></div>
+      <div class="chain-blk">
+        <div class="cnum">#3</div>
+        <div style="font-size:0.62rem; color:var(--text2);">Chaîné</div>
+        <div class="chash">SHA256(prev + sig₃ + ts₃)</div>
+      </div>
+      <div class="chain-link"></div>
+      <div class="chain-blk">
+        <div class="cnum">#N</div>
+        <div style="font-size:0.62rem; color:var(--text2);">→ ∞</div>
+        <div class="chash">SHA256(prev + sigₙ + tsₙ)</div>
+      </div>
+    </div>
+
+    <div class="stats-row">
+      <div class="pill"><span>Storage</span> <span class="v" style="color:var(--hash);">SQLite</span></div>
+      <div class="pill"><span>Intégrité</span> <span class="v" style="color:var(--gen);">Hash chain</span></div>
+      <div class="pill"><span>Détection</span> <span class="v" style="color:#ef4444;">Falsification</span></div>
+    </div>
+  </section>
+
+  <!-- ================================================================ -->
+  <!--  SECTION 10: BACKUP & RECOVERY                                    -->
+  <!-- ================================================================ -->
+  <section class="sect">
+    <div class="sect-head">
+      <div class="sect-icon" style="background:var(--backup-bg); color:var(--backup); border:1px solid var(--backup-b);">💾</div>
+      <div>
+        <h2>Backup Chiffré &amp; Password Recovery</h2>
+        <div class="sub">AES-256-GCM · Sauvegarde &amp; restauration des preuves et mots de passe</div>
+      </div>
+    </div>
+
+    <p class="desc">Le module <span class="mono">backup.py</span> permet de sauvegarder l'intégralité de la base de traçabilité (preuves, audit trail, mots de passe hashés) dans un fichier chiffré AES-256-GCM. Ce backup protégé par mot de passe maître permet la récupération complète en cas de perte de données.</p>
+
+    <div class="grid-2" style="margin-bottom:20px;">
+      <div class="card" style="border-color:var(--backup-b);">
+        <h3 style="color:var(--backup);">🔐 Chiffrement</h3>
+        <p class="txt">AES-256-GCM avec dérivation de clé PBKDF2. Le fichier de backup contient les preuves, l'audit trail complet, et les métadonnées — tout chiffré par un mot de passe maître choisi par l'utilisateur.</p>
+        <div class="stats-row">
+          <div class="pill"><span>Algo</span> <span class="v" style="color:var(--backup);">AES-256-GCM</span></div>
+          <div class="pill"><span>KDF</span> <span class="v">PBKDF2</span></div>
+          <div class="pill"><span>Auth</span> <span class="v" style="color:var(--gen);">GCM tag</span></div>
+        </div>
+      </div>
+
+      <div class="card" style="border-color:var(--gen-b);">
+        <h3 style="color:var(--gen);">♻️ Restauration</h3>
+        <p class="txt">La restauration déchiffre le backup, vérifie l'intégrité de la chaîne d'audit, et reconsitue l'état complet de la base. Permet de retrouver les preuves associées à chaque mot de passe généré.</p>
+        <div class="stats-row">
+          <div class="pill"><span>Vérification</span> <span class="v">Hash chain</span></div>
+          <div class="pill"><span>Restaure</span> <span class="v">Preuves + audit</span></div>
+        </div>
+      </div>
+    </div>
+
+    <!-- Recovery Flow -->
+    <p class="desc" style="margin-top:20px;">Flux de sauvegarde et récupération :</p>
+
+    <div class="recov-flow">
+      <div class="recov-node" style="border-color:var(--hash-b);">
+        <div class="rn-icon">🗄</div>
+        <div class="rn-title">SQLite DB</div>
+        <div class="rn-desc">Preuves + audit trail + chain hashes</div>
+      </div>
+      <div class="recov-arrow">→</div>
+      <div class="recov-node" style="border-color:var(--backup-b);">
+        <div class="rn-icon">🔑</div>
+        <div class="rn-title">Mot de passe maître</div>
+        <div class="rn-desc">PBKDF2 → clé AES-256</div>
+      </div>
+      <div class="recov-arrow">→</div>
+      <div class="recov-node" style="border-color:var(--proof-b);">
+        <div class="rn-icon">📦</div>
+        <div class="rn-title">Backup .enc</div>
+        <div class="rn-desc">Fichier AES-256-GCM chiffré</div>
+      </div>
+      <div class="recov-arrow">→</div>
+      <div class="recov-node" style="border-color:var(--gen-b);">
+        <div class="rn-icon">♻️</div>
+        <div class="rn-title">Recovery</div>
+        <div class="rn-desc">Déchiffre + vérifie intégrité chaîne</div>
+      </div>
+    </div>
+  </section>
+
+  <div class="divider"></div>
+
+  <!-- ================================================================ -->
+  <!--  SECTION 11: FULL SCHEMA                                          -->
+  <!-- ================================================================ -->
+  <section class="sect">
+    <div class="sect-head">
+      <div class="sect-icon" style="background:var(--surface2); color:var(--text); border:1px solid var(--border);">🗺</div>
+      <div>
+        <h2>Schéma Complet du Projet</h2>
+        <div class="sub">Vue d'ensemble de bout en bout · Du bruit radio au backup chiffré</div>
+      </div>
+    </div>
+
+    <div class="card" style="padding:32px; overflow-x:auto;">
+      <div style="min-width:700px;">
+        <!-- Row 1: Sources -->
+        <div style="display:flex; align-items:center; gap:8px; margin-bottom:6px;">
+          <div style="font-size:0.58rem; color:var(--text3); width:100px; text-align:right;">SOURCES</div>
+          <div style="display:flex; align-items:center; gap:6px; flex:1;">
+            <div style="background:var(--radio-bg); border:1px solid var(--radio-b); border-radius:8px; padding:8px 14px; font-size:0.65rem; color:var(--radio); font-weight:600; flex:1; text-align:center;">📡 RTL-SDR</div>
+            <div style="background:var(--hash-bg); border:1px solid var(--hash-b); border-radius:8px; padding:8px 14px; font-size:0.65rem; color:var(--hash); flex:1; text-align:center; opacity:0.6;">RDRAND</div>
+            <div style="background:var(--signal-bg); border:1px solid var(--signal-b); border-radius:8px; padding:8px 14px; font-size:0.65rem; color:var(--signal); flex:1; text-align:center; opacity:0.6;">RDSEED</div>
+            <div style="background:var(--gen-bg); border:1px solid var(--gen-b); border-radius:8px; padding:8px 14px; font-size:0.65rem; color:var(--gen); flex:1; text-align:center; opacity:0.6;">CSPRNG</div>
+          </div>
+        </div>
+
+        <!-- Arrow -->
+        <div style="display:flex; align-items:center; margin:4px 0 4px 108px;">
+          <div style="width:2px; height:20px; background:var(--border); margin:0 auto;"></div>
+        </div>
+
+        <!-- Row 2: Pipeline stages -->
+        <div style="display:flex; align-items:center; gap:8px; margin-bottom:6px;">
+          <div style="font-size:0.58rem; color:var(--text3); width:100px; text-align:right;">PIPELINE</div>
+          <div style="display:flex; align-items:center; gap:4px; flex:1;">
+            <div style="background:var(--signal-bg); border:1px solid var(--signal-b); border-radius:8px; padding:10px 12px; font-size:0.62rem; color:var(--signal); text-align:center; flex:1;">
+              <div style="font-weight:700;">Von Neumann</div>
+              <div style="font-size:0.55rem; opacity:0.7; margin-top:2px;">Débiaisage</div>
+            </div>
+            <div style="color:var(--text3); font-size:0.7rem;">→</div>
+            <div style="background:var(--hash-bg); border:1px solid var(--hash-b); border-radius:8px; padding:10px 12px; font-size:0.62rem; color:var(--hash); text-align:center; flex:1;">
+              <div style="font-weight:700;">SHA-512</div>
+              <div style="font-size:0.55rem; opacity:0.7; margin-top:2px;">Blanchiment</div>
+            </div>
+            <div style="color:var(--text3); font-size:0.7rem;">→</div>
+            <div style="background:var(--nist-bg); border:1px solid var(--nist-b); border-radius:8px; padding:10px 12px; font-size:0.62rem; color:var(--nist); text-align:center; flex:1;">
+              <div style="font-weight:700;">NIST 800-22</div>
+              <div style="font-size:0.55rem; opacity:0.7; margin-top:2px;">15 tests</div>
+            </div>
+            <div style="color:var(--text3); font-size:0.7rem;">→</div>
+            <div style="background:var(--gen-bg); border:1px solid var(--gen-b); border-radius:8px; padding:10px 12px; font-size:0.62rem; color:var(--gen); text-align:center; flex:1;">
+              <div style="font-weight:700;">Rejection Sampling</div>
+              <div style="font-size:0.55rem; opacity:0.7; margin-top:2px;">Sans biais</div>
+            </div>
+          </div>
+        </div>
+
+        <!-- Arrow -->
+        <div style="display:flex; align-items:center; margin:4px 0 4px 108px;">
+          <div style="width:2px; height:20px; background:var(--border); margin:0 auto;"></div>
+        </div>
+
+        <!-- Row 3: Outputs -->
+        <div style="display:flex; align-items:center; gap:8px; margin-bottom:6px;">
+          <div style="font-size:0.58rem; color:var(--text3); width:100px; text-align:right;">SORTIE</div>
+          <div style="display:flex; align-items:center; gap:6px; flex:1;">
+            <div style="background:var(--gen-bg); border:1px solid var(--gen-b); border-radius:8px; padding:10px 16px; font-size:0.65rem; color:var(--gen); font-weight:600; flex:1; text-align:center;">
+              🔑 Password<br><span style="font-size:0.55rem; font-weight:400; opacity:0.7;">70-94 chars · ~98+ bits</span>
+            </div>
+            <div style="background:var(--hash-bg); border:1px solid var(--hash-b); border-radius:8px; padding:10px 16px; font-size:0.65rem; color:var(--hash); font-weight:600; flex:1; text-align:center;">
+              📝 Passphrase<br><span style="font-size:0.55rem; font-weight:400; opacity:0.7;">EFF 7776 · ~12.9 bits/mot</span>
+            </div>
+          </div>
+        </div>
+
+        <!-- Arrow -->
+        <div style="display:flex; align-items:center; margin:4px 0 4px 108px;">
+          <div style="width:2px; height:20px; background:var(--border); margin:0 auto;"></div>
+        </div>
+
+        <!-- Row 4: Traceability -->
+        <div style="display:flex; align-items:center; gap:8px; margin-bottom:6px;">
+          <div style="font-size:0.58rem; color:var(--text3); width:100px; text-align:right;">TRAÇABILITÉ</div>
+          <div style="display:flex; align-items:center; gap:6px; flex:1;">
+            <div style="background:var(--proof-bg); border:1px solid var(--proof-b); border-radius:8px; padding:10px 16px; font-size:0.62rem; color:var(--proof); flex:1; text-align:center;">
+              <div style="font-weight:700;">📜 Proof (JSON)</div>
+              <div style="font-size:0.55rem; opacity:0.7; margin-top:2px;">4 hashes + signature</div>
+            </div>
+            <div style="color:var(--text3); font-size:0.7rem;">→</div>
+            <div style="background:var(--hash-bg); border:1px solid var(--hash-b); border-radius:8px; padding:10px 16px; font-size:0.62rem; color:var(--hash); flex:1; text-align:center;">
+              <div style="font-weight:700;">⛓ Audit SQLite</div>
+              <div style="font-size:0.55rem; opacity:0.7; margin-top:2px;">Blockchain hash chain</div>
+            </div>
+            <div style="color:var(--text3); font-size:0.7rem;">→</div>
+            <div style="background:var(--backup-bg); border:1px solid var(--backup-b); border-radius:8px; padding:10px 16px; font-size:0.62rem; color:var(--backup); flex:1; text-align:center;">
+              <div style="font-weight:700;">💾 Backup .enc</div>
+              <div style="font-size:0.55rem; opacity:0.7; margin-top:2px;">AES-256-GCM chiffré</div>
+            </div>
+          </div>
+        </div>
+
+        <!-- Arrow -->
+        <div style="display:flex; align-items:center; margin:4px 0 4px 108px;">
+          <div style="width:2px; height:20px; background:var(--border); margin:0 auto;"></div>
+        </div>
+
+        <!-- Row 5: Security -->
+        <div style="display:flex; align-items:center; gap:8px;">
+          <div style="font-size:0.58rem; color:var(--text3); width:100px; text-align:right;">SÉCURITÉ</div>
+          <div style="display:flex; align-items:center; gap:6px; flex:1;">
+            <div style="background:var(--surface2); border:1px solid var(--border); border-radius:8px; padding:8px 14px; font-size:0.6rem; color:var(--text2); flex:1; text-align:center;">🧹 Mémoire sécurisée</div>
+            <div style="background:var(--surface2); border:1px solid var(--border); border-radius:8px; padding:8px 14px; font-size:0.6rem; color:var(--text2); flex:1; text-align:center;">📋 Clipboard auto-clear</div>
+            <div style="background:var(--surface2); border:1px solid var(--border); border-radius:8px; padding:8px 14px; font-size:0.6rem; color:var(--text2); flex:1; text-align:center;">👁 Affichage masqué</div>
+            <div style="background:var(--surface2); border:1px solid var(--border); border-radius:8px; padding:8px 14px; font-size:0.6rem; color:var(--text2); flex:1; text-align:center;">✓ Verify offline</div>
+          </div>
+        </div>
+      </div>
+    </div>
+  </section>
+
+</div>
+
+<footer class="footer">
+  <p>RADIO NOISE · <a href="https://github.com/Sherub1/RadioNoise" target="_blank">github.com/Sherub1/RadioNoise</a> · Python 3.10+ · MIT License</p>
+</footer>
+
+</body>
+</html>
