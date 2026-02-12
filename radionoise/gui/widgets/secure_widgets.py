@@ -9,7 +9,13 @@ from PyQt6.QtWidgets import (
     QListWidget, QListWidgetItem, QApplication
 )
 from PyQt6.QtCore import QTimer, Qt, pyqtSignal
-from PyQt6.QtGui import QFont
+from PyQt6.QtGui import QFont, QFontDatabase
+
+
+def _fixed_font(size: int) -> QFont:
+    font = QFontDatabase.systemFont(QFontDatabase.SystemFont.FixedFont)
+    font.setPointSize(size)
+    return font
 
 
 class SecurePasswordDisplay(QLineEdit):
@@ -24,7 +30,7 @@ class SecurePasswordDisplay(QLineEdit):
         super().__init__(parent)
         self.setReadOnly(True)
         self.setEchoMode(QLineEdit.EchoMode.Password)
-        self.setFont(QFont("Monospace", 12))
+        self.setFont(_fixed_font(12))
 
         self._timer = QTimer(self)
         self._timer.setSingleShot(True)
@@ -143,7 +149,7 @@ class SecurePasswordList(QListWidget):
 
     def __init__(self, parent=None):
         super().__init__(parent)
-        self.setFont(QFont("Monospace", 11))
+        self.setFont(_fixed_font(11))
         self._passwords: list[str] = []
         self._revealed = False
 

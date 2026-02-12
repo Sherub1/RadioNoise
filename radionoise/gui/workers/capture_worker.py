@@ -90,4 +90,20 @@ class CaptureWorker(BaseWorker):
                 self.result_ready.emit(entropy, source, raw_iq_data)
 
         except Exception as e:
-            self.error.emit(str(e))
+            from radionoise.core.entropy import (
+                DeviceNotFoundError, DeviceDisconnectedError, RTLSDRError
+            )
+            if isinstance(e, DeviceNotFoundError):
+                self.error.emit(
+                    "Périphérique RTL-SDR non trouvé.\n"
+                    "Vérifiez que le dongle est branché et que les pilotes sont installés."
+                )
+            elif isinstance(e, DeviceDisconnectedError):
+                self.error.emit(
+                    "Connexion RTL-SDR perdue pendant la capture.\n"
+                    "Reconnectez le périphérique et réessayez."
+                )
+            elif isinstance(e, RTLSDRError):
+                self.error.emit(f"Erreur RTL-SDR: {e}")
+            else:
+                self.error.emit(str(e))

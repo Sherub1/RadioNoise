@@ -18,6 +18,9 @@ from cryptography.hazmat.primitives.kdf.pbkdf2 import PBKDF2HMAC
 
 from radionoise.core.entropy import von_neumann_extract, hash_entropy
 from radionoise.core.generator import generate_password
+from radionoise.core.log import get_logger
+
+logger = get_logger('backup')
 
 
 class SecureBackupSystem:
@@ -161,7 +164,7 @@ class SecureBackupSystem:
         backup_path = self.backup_dir / backup_id
         backup_path.mkdir(exist_ok=True)
 
-        print(f"Creating backup: {backup_id}")
+        logger.info("Creating backup: %s", backup_id)
 
         # 1. Encrypt IQ samples
         encrypted, salt, nonce, tag = self._encrypt_iq_samples(iq_data, master_password)
@@ -195,10 +198,10 @@ class SecureBackupSystem:
         }
         self._save_metadata()
 
-        print(f"Backup created: {backup_path}")
-        print(f"   - Encrypted IQ: {len(encrypted):,} bytes")
-        print(f"   - Proof: proof.json")
-        print(f"   - Crypto metadata: crypto_metadata.json")
+        logger.info("Backup created: %s", backup_path)
+        logger.info("  Encrypted IQ: %s bytes", f"{len(encrypted):,}")
+        logger.info("  Proof: proof.json")
+        logger.info("  Crypto metadata: crypto_metadata.json")
 
         return backup_id
 
@@ -223,7 +226,7 @@ class SecureBackupSystem:
         if not backup_path.exists():
             raise ValueError(f"Backup not found: {backup_id}")
 
-        print(f"Recovering backup: {backup_id}")
+        logger.info("Recovering backup: %s", backup_id)
 
         # 1. Load metadata
         with open(backup_path / "crypto_metadata.json", 'r') as f:
@@ -243,10 +246,10 @@ class SecureBackupSystem:
 
         try:
             iq_data = self._decrypt_iq_samples(encrypted, salt, nonce, tag, master_password)
-            print(f"IQ samples decrypted: {len(iq_data):,} bytes")
+            logger.info("IQ samples decrypted: %s bytes", f"{len(iq_data):,}")
         except Exception as e:
-            print(f"Decryption failed: {e}")
-            print("   Incorrect master password?")
+            logger.error("Decryption failed: %s", e)
+            logger.error("Incorrect master password?")
             return None, None
 
         # 4. Reprocess to regenerate password
@@ -261,30 +264,30 @@ class SecureBackupSystem:
         password_hash = hashlib.sha256(password.encode()).hexdigest()
 
         if password_hash != proof['password_hash']:
-            print("ERROR: Regenerated password does not match proof!")
-            print("   IQ samples may be corrupted.")
+            logger.error("Regenerated password does not match proof!")
+            logger.error("IQ samples may be corrupted.")
             return None, proof
 
-        print("Password regenerated and verified")
+        logger.info("Password regenerated and verified")
 
         return password, proof
 
     def list_backups(self) -> None:
         """List all available backups."""
-        print("=" * 70)
-        print("AVAILABLE BACKUPS")
-        print("=" * 70)
+        logger.info("=" * 70)
+        logger.info("AVAILABLE BACKUPS")
+        logger.info("=" * 70)
 
         if not self.metadata:
-            print("No backups found.")
+            logger.info("No backups found.")
             return
 
         for backup_id, meta in self.metadata.items():
-            print(f"\n{backup_id}")
-            print(f"   Timestamp: {meta['timestamp']}")
-            print(f"   Label: {meta.get('label', 'N/A')}")
-            print(f"   Password hash: {meta['password_hash'][:16]}...")
-            print(f"   Created: {meta['created_at']}")
+            logger.info("%s", backup_id)
+            logger.info("  Timestamp: %s", meta['timestamp'])
+            logger.info("  Label: %s", meta.get('label', 'N/A'))
+            logger.info("  Password hash: %s...", meta['password_hash'][:16])
+            logger.info("  Created: %s", meta['created_at'])
 
     def get_backup_list(self) -> Dict[str, Dict[str, Any]]:
         """Return backup metadata dictionary."""
@@ -307,8 +310,8 @@ class SecureBackupSystem:
         with tarfile.open(output_file, "w:gz") as tar:
             tar.add(backup_path, arcname=backup_id)
 
-        print(f"Backup exported: {output_file}")
-        print("   Can be restored with import_backup_bundle()")
+        logger.info("Backup exported: %s", output_file)
+        logger.info("Can be restored with import_backup_bundle()")
 
     def import_backup_bundle(self, bundle_file: str) -> None:
         """
@@ -338,7 +341,7 @@ class SecureBackupSystem:
         # Rebuild metadata
         self._rebuild_metadata()
 
-        print(f"Backup imported: {bundle_file}")
+        logger.info("Backup imported: %s", bundle_file)
 
     def _rebuild_metadata(self) -> None:
         """Rebuild metadata.json from existing backups."""
@@ -360,7 +363,7 @@ class SecureBackupSystem:
                     }
 
         self._save_metadata()
-        print(f"Metadata rebuilt: {len(self.metadata)} backups")
+        logger.info("Metadata rebuilt: %d backups", len(self.metadata))
 
     def _load_metadata(self) -> Dict[str, Dict[str, Any]]:
         """Load metadata."""
@@ -398,5 +401,5 @@ class SecureBackupSystem:
             del self.metadata[backup_id]
             self._save_metadata()
 
-        print(f"Backup deleted: {backup_id}")
+        logger.info("Backup deleted: %s", backup_id)
         return True

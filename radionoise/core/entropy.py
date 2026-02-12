@@ -12,6 +12,9 @@ import secrets
 from typing import Optional, Literal
 
 from radionoise.core.security import secure_zero
+from radionoise.core.log import get_logger
+
+logger = get_logger('entropy')
 
 
 # =============================================================================
@@ -33,6 +36,41 @@ def get_last_entropy_source() -> str:
 class RDRANDError(Exception):
     """Error when using RDRAND."""
     pass
+
+
+class RTLSDRError(Exception):
+    """Base error for RTL-SDR device issues."""
+    pass
+
+
+class DeviceNotFoundError(RTLSDRError):
+    """RTL-SDR device not found / not connected."""
+    pass
+
+
+class DeviceDisconnectedError(RTLSDRError):
+    """RTL-SDR device disconnected during operation."""
+    pass
+
+
+def _parse_rtlsdr_error(stderr: str) -> RTLSDRError:
+    """Parse rtl_sdr stderr and return an appropriate exception."""
+    stderr_lower = stderr.lower()
+    if "no supported devices" in stderr_lower or "no devices" in stderr_lower:
+        return DeviceNotFoundError(
+            "Aucun périphérique RTL-SDR trouvé. Vérifiez la connexion USB."
+        )
+    if "usb_claim_interface" in stderr_lower or "resource busy" in stderr_lower:
+        return DeviceDisconnectedError(
+            "Périphérique RTL-SDR inaccessible. "
+            "Vérifiez qu'aucun autre programme ne l'utilise."
+        )
+    if "disconnect" in stderr_lower or "lost" in stderr_lower:
+        return DeviceDisconnectedError(
+            "Périphérique RTL-SDR déconnecté pendant la capture. "
+            "Reconnectez le périphérique et réessayez."
+        )
+    return RTLSDRError(f"Erreur RTL-SDR: {stderr.strip()}")
 
 
 class HardwareRNG:
@@ -359,20 +397,19 @@ def capture_entropy_fallback(bytes_needed: int, use_rdseed: bool = False) -> np.
     if HardwareRNG.is_available():
         source = "RDSEED" if use_rdseed else "RDRAND"
         _last_entropy_source = source
-        print(f"  RTL-SDR unavailable, using {source} (CPU hardware RNG)")
-        print(f"   Source: Intel/AMD certified hardware generator")
+        logger.info("RTL-SDR unavailable, using %s (CPU hardware RNG)", source)
+        logger.info("Source: Intel/AMD certified hardware generator")
         try:
             raw_bytes = HardwareRNG.get_bytes(bytes_needed, use_rdseed=use_rdseed)
             arr = np.frombuffer(raw_bytes, dtype=np.uint8).copy()
             secure_zero(bytearray(raw_bytes))
             return arr
         except RDRANDError as e:
-            print(f"   RDRAND error: {e}, falling back to secrets...")
+            logger.warning("RDRAND error: %s, falling back to secrets...", e)
 
     _last_entropy_source = "CSPRNG"
-    print("  RTL-SDR and RDRAND unavailable, using system CSPRNG")
-    print("   Note: System entropy is cryptographically secure but")
-    print("   does not use a dedicated hardware source.")
+    logger.info("RTL-SDR and RDRAND unavailable, using system CSPRNG")
+    logger.info("Note: System entropy is cryptographically secure but does not use a dedicated hardware source.")
     return np.frombuffer(secrets.token_bytes(bytes_needed), dtype=np.uint8)
 
 
@@ -422,17 +459,20 @@ def capture_entropy(
 
         if result.returncode != 0:
             if allow_fallback:
-                print(f"  rtl_sdr failed: {result.stderr.strip()}")
+                logger.warning("rtl_sdr failed: %s", result.stderr.strip())
                 estimated_bytes = max(1000, samples // 30)
                 return capture_entropy_fallback(estimated_bytes, use_rdseed=use_rdseed)
-            raise RuntimeError(f"rtl_sdr failed: {result.stderr}")
+            raise _parse_rtlsdr_error(result.stderr)
 
         _last_entropy_source = "RTL-SDR"
 
         raw = np.fromfile(temp_path, dtype=np.uint8)
 
         if len(raw) < samples * 0.9:
-            raise RuntimeError(f"Incomplete data: {len(raw)}/{samples} samples")
+            raise DeviceDisconnectedError(
+                f"Capture incomplète: {len(raw)}/{samples} échantillons. "
+                "Le périphérique a peut-être été déconnecté."
+            )
 
         extracted = von_neumann_extract(raw)
         hashed = hash_entropy(extracted)
@@ -488,14 +528,17 @@ def capture_entropy_raw(
         ], capture_output=True, timeout=30, text=True)
 
         if result.returncode != 0:
-            raise RuntimeError(f"rtl_sdr failed: {result.stderr}")
+            raise _parse_rtlsdr_error(result.stderr)
 
         _last_entropy_source = "RTL-SDR"
 
         raw = np.fromfile(temp_path, dtype=np.uint8)
 
         if len(raw) < samples * 0.9:
-            raise RuntimeError(f"Incomplete data: {len(raw)}/{samples} samples")
+            raise DeviceDisconnectedError(
+                f"Capture incomplète: {len(raw)}/{samples} échantillons. "
+                "Le périphérique a peut-être été déconnecté."
+            )
 
         return raw
 

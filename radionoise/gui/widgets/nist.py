@@ -3,6 +3,8 @@
 NIST SP 800-22 test widget.
 """
 
+import csv
+import json
 import os
 from datetime import datetime
 from pathlib import Path
@@ -11,7 +13,7 @@ from PyQt6.QtWidgets import (
     QWidget, QVBoxLayout, QHBoxLayout, QGroupBox,
     QLabel, QPushButton, QRadioButton, QProgressBar,
     QTableWidget, QTableWidgetItem, QHeaderView,
-    QMessageBox, QButtonGroup
+    QMessageBox, QButtonGroup, QFileDialog
 )
 from PyQt6.QtCore import pyqtSignal, Qt
 from PyQt6.QtGui import QColor
@@ -102,6 +104,11 @@ class NistWidget(WorkerWidgetMixin, QWidget):
         self.cancel_btn.clicked.connect(self._cancel_tests)
         button_row.addWidget(self.cancel_btn)
 
+        self.export_btn = QPushButton("Exporter")
+        self.export_btn.setEnabled(False)
+        self.export_btn.clicked.connect(self._export_results)
+        button_row.addWidget(self.export_btn)
+
         layout.addLayout(button_row)
 
         layout.addStretch()
@@ -131,6 +138,7 @@ class NistWidget(WorkerWidgetMixin, QWidget):
             fast_mode=self.fast_mode.isChecked()
         )
         self._worker.progress.connect(self._on_progress)
+        self._worker.test_complete.connect(self._on_single_test_complete)
         self._worker.result_ready.connect(self._on_tests_finished)
         self._worker.error.connect(self._on_test_error)
         self._worker.start()
@@ -154,39 +162,35 @@ class NistWidget(WorkerWidgetMixin, QWidget):
         self.progress_bar.setValue(percent)
         self.summary_label.setText(f"Test: {test_name}")
 
+    def _on_single_test_complete(self, test_data: dict):
+        """Handle a single test completing — add row to table incrementally."""
+        row = self.results_table.rowCount()
+        self.results_table.setRowCount(row + 1)
+
+        name_item = QTableWidgetItem(test_data.get('name', 'Unknown'))
+        self.results_table.setItem(row, 0, name_item)
+
+        p_value = test_data.get('p_value', 0)
+        p_item = QTableWidgetItem(f"{p_value:.4f}")
+        p_item.setTextAlignment(Qt.AlignmentFlag.AlignCenter)
+        self.results_table.setItem(row, 1, p_item)
+
+        passed = test_data.get('passed', False)
+        result_item = QTableWidgetItem("OK" if passed else "ÉCHEC")
+        result_item.setTextAlignment(Qt.AlignmentFlag.AlignCenter)
+        if passed:
+            result_item.setBackground(QColor(200, 255, 200))
+        else:
+            result_item.setBackground(QColor(255, 200, 200))
+        self.results_table.setItem(row, 2, result_item)
+
     def _on_tests_finished(self, results: dict):
-        """Handle test completion."""
+        """Handle test completion — table already populated incrementally."""
         self._results = results
 
         self.run_btn.setEnabled(True)
         self.cancel_btn.setEnabled(False)
         self.progress_bar.setVisible(False)
-
-        # Populate table - tests is a list of dicts
-        tests = results.get('tests', [])
-        self.results_table.setRowCount(len(tests))
-
-        for row, test_data in enumerate(tests):
-            # Test name
-            test_name = test_data.get('name', 'Unknown')
-            name_item = QTableWidgetItem(test_name)
-            self.results_table.setItem(row, 0, name_item)
-
-            # P-value
-            p_value = test_data.get('p_value', 0)
-            p_item = QTableWidgetItem(f"{p_value:.4f}")
-            p_item.setTextAlignment(Qt.AlignmentFlag.AlignCenter)
-            self.results_table.setItem(row, 1, p_item)
-
-            # Result
-            passed = test_data.get('passed', False)
-            result_item = QTableWidgetItem("OK" if passed else "ÉCHEC")
-            result_item.setTextAlignment(Qt.AlignmentFlag.AlignCenter)
-            if passed:
-                result_item.setBackground(QColor(200, 255, 200))
-            else:
-                result_item.setBackground(QColor(255, 200, 200))
-            self.results_table.setItem(row, 2, result_item)
 
         # Summary
         pass_rate = results.get('pass_rate', 0) * 100
@@ -208,6 +212,7 @@ class NistWidget(WorkerWidgetMixin, QWidget):
         )
         self.summary_label.setStyleSheet(f"font-weight: bold; color: {color};")
 
+        self.export_btn.setEnabled(True)
         self.tests_completed.emit(results)
 
         # Clean up worker
@@ -233,6 +238,53 @@ class NistWidget(WorkerWidgetMixin, QWidget):
     def get_results(self) -> dict | None:
         """Get test results."""
         return self._results
+
+    def load_config(self, config):
+        """Load settings from Config object."""
+        fast = config.get("nist", "fast_mode")
+        if fast is not None:
+            self.fast_mode.setChecked(fast)
+            self.full_mode.setChecked(not fast)
+
+    def save_config(self, config):
+        """Save settings to Config object."""
+        config.set("nist", "fast_mode", self.fast_mode.isChecked())
+
+    def _export_results(self):
+        """Export NIST test results to JSON or CSV."""
+        if not self._results:
+            return
+
+        path, selected_filter = QFileDialog.getSaveFileName(
+            self, "Exporter les résultats NIST", "nist_results",
+            "JSON (*.json);;CSV (*.csv)"
+        )
+        if not path:
+            return
+
+        try:
+            tests = self._results.get('tests', [])
+
+            if path.endswith('.csv') or 'CSV' in selected_filter:
+                if not path.endswith('.csv'):
+                    path += '.csv'
+                with open(path, 'w', newline='') as f:
+                    writer = csv.writer(f)
+                    writer.writerow(["Test Name", "P-value", "Passed"])
+                    for t in tests:
+                        writer.writerow([t['name'], f"{t['p_value']:.6f}", t['passed']])
+            else:
+                if not path.endswith('.json'):
+                    path += '.json'
+                with open(path, 'w') as f:
+                    json.dump(self._results, f, indent=2)
+
+            QMessageBox.information(
+                self, "Export réussi",
+                f"Résultats exportés:\n{path}"
+            )
+        except Exception as e:
+            QMessageBox.critical(self, "Erreur d'export", str(e))
 
     def _propose_save_entropy(self, pass_rate: float):
         """Propose to save validated entropy."""

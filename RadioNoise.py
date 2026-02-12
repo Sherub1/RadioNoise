@@ -1101,26 +1101,14 @@ def capture_entropy_fallback(bytes_needed: int, use_rdseed: bool = False) -> np.
 
 
 def is_rtl_sdr_available() -> bool:
-    """Vérifie si rtl_sdr est disponible ET qu'un appareil est connecté."""
+    """Vérifie si rtl_sdr est disponible sur le système."""
     try:
-        # Vérifier si la commande existe
         result = subprocess.run(
             ["which", "rtl_sdr"],
             capture_output=True,
             timeout=5
         )
-        if result.returncode != 0:
-            return False
-
-        # Vérifier si un appareil est connecté
-        result = subprocess.run(
-            ["rtl_test", "-t"],
-            capture_output=True,
-            timeout=5,
-            text=True
-        )
-        # rtl_test retourne 0 même sans appareil, mais affiche "No supported devices found"
-        return "Found" in result.stderr and "No supported" not in result.stderr
+        return result.returncode == 0
     except (subprocess.TimeoutExpired, FileNotFoundError):
         return False
 

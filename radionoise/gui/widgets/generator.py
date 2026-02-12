@@ -10,7 +10,7 @@ from PyQt6.QtWidgets import (
     QListWidgetItem, QApplication, QMessageBox
 )
 from PyQt6.QtCore import pyqtSignal, Qt
-from PyQt6.QtGui import QFont
+from PyQt6.QtGui import QFont, QFontDatabase
 import numpy as np
 
 from radionoise.gui.workers.generator_worker import GeneratorWorker
@@ -108,7 +108,9 @@ class GeneratorWidget(WorkerWidgetMixin, QWidget):
         results_layout = QVBoxLayout(results_group)
 
         self.results_list = QListWidget()
-        self.results_list.setFont(QFont("Monospace", 12))
+        fixed = QFontDatabase.systemFont(QFontDatabase.SystemFont.FixedFont)
+        fixed.setPointSize(12)
+        self.results_list.setFont(fixed)
         self.results_list.setMinimumHeight(200)
         results_layout.addWidget(self.results_list)
 
@@ -313,3 +315,29 @@ class GeneratorWidget(WorkerWidgetMixin, QWidget):
             "charset": self._get_charset_name(),
             "passphrase": self.passphrase_radio.isChecked()
         }
+
+    def load_config(self, config):
+        """Load settings from Config object."""
+        gen_type = config.get("generator", "type")
+        if gen_type == "passphrase":
+            self.passphrase_radio.setChecked(True)
+        else:
+            self.password_radio.setChecked(True)
+        length = config.get("generator", "length")
+        if length is not None:
+            self.length_spin.setValue(length)
+        count = config.get("generator", "count")
+        if count is not None:
+            self.count_spin.setValue(count)
+        charset = config.get("generator", "charset")
+        if charset is not None:
+            charset_map = {"safe": 0, "full": 1, "alpha": 2, "alnum": 3, "digits": 4, "hex": 5}
+            idx = charset_map.get(charset, 0)
+            self.charset_combo.setCurrentIndex(idx)
+
+    def save_config(self, config):
+        """Save settings to Config object."""
+        config.set("generator", "type", "passphrase" if self.passphrase_radio.isChecked() else "password")
+        config.set("generator", "length", self.length_spin.value())
+        config.set("generator", "count", self.count_spin.value())
+        config.set("generator", "charset", self._get_charset_name())

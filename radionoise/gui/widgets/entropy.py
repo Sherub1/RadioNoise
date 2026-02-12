@@ -13,6 +13,7 @@ import numpy as np
 
 from radionoise.gui.workers import CaptureWorker
 from radionoise.gui.widgets.worker_mixin import WorkerWidgetMixin
+from radionoise.gui.widgets.entropy_viz import EntropyVizWidget
 
 
 class EntropyWidget(WorkerWidgetMixin, QWidget):
@@ -105,6 +106,11 @@ class EntropyWidget(WorkerWidgetMixin, QWidget):
         status_layout.addWidget(self.progress_bar)
 
         layout.addWidget(status_group)
+
+        # Entropy visualization (hidden until capture)
+        self.entropy_viz = EntropyVizWidget()
+        self.entropy_viz.setVisible(False)
+        layout.addWidget(self.entropy_viz)
 
         # Buttons
         button_row = QHBoxLayout()
@@ -207,6 +213,10 @@ class EntropyWidget(WorkerWidgetMixin, QWidget):
         if raw_iq is not None:
             self._log(f"   Données IQ brutes: {len(raw_iq):,} octets")
 
+        # Show entropy visualization
+        self.entropy_viz.set_data(entropy)
+        self.entropy_viz.setVisible(True)
+
         self.entropy_captured.emit(entropy, source, raw_iq)
 
         # Clean up worker after thread finishes
@@ -219,6 +229,10 @@ class EntropyWidget(WorkerWidgetMixin, QWidget):
         self.progress_bar.setVisible(False)
 
         self._log(f"ERREUR: {error}")
+
+        if "reconnectez" in error.lower() or "déconnecté" in error.lower():
+            self._log("Conseil: Reconnectez le périphérique et cliquez sur 'Capturer'.")
+
         self.capture_error.emit(error)
 
         # Clean up worker after thread finishes
@@ -234,6 +248,8 @@ class EntropyWidget(WorkerWidgetMixin, QWidget):
             self._entropy = entropy
 
             self._log(f"Chargé: {len(entropy):,} octets")
+            self.entropy_viz.set_data(entropy)
+            self.entropy_viz.setVisible(True)
             self.entropy_captured.emit(entropy, "file", None)
 
         except Exception as e:
@@ -243,3 +259,29 @@ class EntropyWidget(WorkerWidgetMixin, QWidget):
     def get_entropy(self) -> np.ndarray | None:
         """Get captured entropy."""
         return self._entropy
+
+    def load_config(self, config):
+        """Load settings from Config object."""
+        freq = config.get("capture", "frequency_mhz")
+        if freq is not None:
+            self.frequency_spin.setValue(freq)
+        samples = config.get("capture", "samples")
+        if samples is not None:
+            self.samples_spin.setValue(samples)
+        fallback = config.get("capture", "allow_fallback")
+        if fallback is not None:
+            self.allow_fallback.setChecked(fallback)
+        rdseed = config.get("capture", "use_rdseed")
+        if rdseed is not None:
+            self.use_rdseed.setChecked(rdseed)
+        raw = config.get("capture", "capture_raw")
+        if raw is not None:
+            self.capture_raw.setChecked(raw)
+
+    def save_config(self, config):
+        """Save settings to Config object."""
+        config.set("capture", "frequency_mhz", self.frequency_spin.value())
+        config.set("capture", "samples", self.samples_spin.value())
+        config.set("capture", "allow_fallback", self.allow_fallback.isChecked())
+        config.set("capture", "use_rdseed", self.use_rdseed.isChecked())
+        config.set("capture", "capture_raw", self.capture_raw.isChecked())
